@@ -1,7 +1,7 @@
 # Agent Builder CLI (ab-cli)
 
-[![CI](https://github.com/tiry/ab-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/tiry/ab-cli/actions/workflows/ci.yml)
-[![Coverage](https://raw.githubusercontent.com/tiry/ab-cli/badges/.github/coverage.svg)](https://github.com/tiry/ab-cli/actions/workflows/ci.yml)
+[![CI](https://github.com/tiry/abcli/actions/workflows/ci.yml/badge.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/.github/coverage.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
