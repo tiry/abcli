@@ -83,6 +83,9 @@ jobs:
         # Copy badge to temp location (outside git working directory)
         cp .github/coverage.svg /tmp/coverage.svg
         
+        # Remove the untracked file to avoid checkout issues
+        rm -f .github/coverage.svg
+        
         # Try to fetch and checkout badges branch, or create it if it doesn't exist
         if git fetch origin badges:badges 2>/dev/null; then
           # Branch exists, check it out
