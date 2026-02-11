@@ -42,7 +42,9 @@ def output_yaml(data: dict) -> None:
     console.print(yaml.dump(data, default_flow_style=False))
 
 
-def format_response(response: InvokeResponse, output_format: str = "table", verbose: bool = False) -> None:
+def format_response(
+    response: InvokeResponse, output_format: str = "table", verbose: bool = False
+) -> None:
     """Format and display an invocation response."""
     if output_format == "json":
         output_json(response.model_dump())
@@ -85,9 +87,17 @@ def invoke() -> None:
 @click.option("--message", "-m", help="Message to send")
 @click.option("--message-file", type=click.Path(exists=True), help="Read message from file")
 @click.option("--stream", "-s", is_flag=True, help="Enable streaming")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
-@click.option("--verbose", "-v", is_flag=True, help="Show verbose output including raw API response")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
+@click.option(
+    "--verbose", "-v", is_flag=True, help="Show verbose output including raw API response"
+)
 @click.pass_context
 def chat(
     ctx: click.Context,
@@ -124,10 +134,7 @@ def chat(
 
     messages = [ChatMessage(role="user", content=message)]
     request = InvokeRequest(
-        messages=messages,
-        hxqlQuery=None,
-        hybridSearch=None,
-        enableDeepSearch=False
+        messages=messages, hxqlQuery=None, hybridSearch=None, enableDeepSearch=False
     )
 
     try:
@@ -169,9 +176,17 @@ def chat(
 @click.argument("version_id", required=False, default="latest")
 @click.option("--input", "-i", "input_file", required=True, type=click.Path(exists=True))
 @click.option("--stream", "-s", is_flag=True, help="Enable streaming")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
-@click.option("--verbose", "-v", is_flag=True, help="Show verbose output including raw API response")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
+@click.option(
+    "--verbose", "-v", is_flag=True, help="Show verbose output including raw API response"
+)
 @click.pass_context
 def task(
     ctx: click.Context,
@@ -278,10 +293,7 @@ def interactive(ctx: click.Context, agent_id: str, version_id: str) -> None:
 
                     # Invoke agent
                     request = InvokeRequest(
-                        messages=messages,
-                        hxqlQuery=None,
-                        hybridSearch=None,
-                        enableDeepSearch=False
+                        messages=messages, hxqlQuery=None, hybridSearch=None, enableDeepSearch=False
                     )
                     console.print("[bold cyan]Agent[/bold cyan]", end=" ")
 

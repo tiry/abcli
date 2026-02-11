@@ -42,15 +42,17 @@ def versions() -> None:
 @click.argument("agent_id")
 @click.option("--limit", "-l", default=50, help="Maximum number of versions to return")
 @click.option("--offset", "-o", default=0, help="Offset for pagination")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def list_versions(
-    ctx: click.Context,
-    agent_id: str,
-    limit: int,
-    offset: int,
-    output_format: str
+    ctx: click.Context, agent_id: str, limit: int, offset: int, output_format: str
 ) -> None:
     """List all versions of an agent."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
@@ -81,7 +83,9 @@ def list_versions(
                         str(version.id),
                         str(version.number),
                         version.version_label or "-",
-                        (version.notes[:30] + "...") if version.notes and len(version.notes) > 30 else (version.notes or "-"),
+                        (version.notes[:30] + "...")
+                        if version.notes and len(version.notes) > 30
+                        else (version.notes or "-"),
                         version.created_at[:10] if version.created_at else "",
                         version.created_by,
                     )
@@ -99,15 +103,16 @@ def list_versions(
 @versions.command("get")
 @click.argument("agent_id")
 @click.argument("version_id")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
-def get_version(
-    ctx: click.Context,
-    agent_id: str,
-    version_id: str,
-    output_format: str
-) -> None:
+def get_version(ctx: click.Context, agent_id: str, version_id: str, output_format: str) -> None:
     """Get details of a specific version."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
@@ -149,12 +154,24 @@ def get_version(
 
 @versions.command("create")
 @click.argument("agent_id")
-@click.option("--config", "-c", "config_file", required=True, type=click.Path(exists=True),
-              help="Path to JSON config file")
+@click.option(
+    "--config",
+    "-c",
+    "config_file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to JSON config file",
+)
 @click.option("--version-label", "-v", help="Version label (e.g., v2.0)")
 @click.option("--notes", help="Version notes")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def create_version(
     ctx: click.Context,

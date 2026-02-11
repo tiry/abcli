@@ -100,7 +100,11 @@ class InvokeResponse(BaseModel):
                     continue
 
                 # Look for message type items with content
-                if output_item.get("type") == "message" and "content" in output_item and isinstance(output_item["content"], list):
+                if (
+                    output_item.get("type") == "message"
+                    and "content" in output_item
+                    and isinstance(output_item["content"], list)
+                ):
                     for content_item in output_item["content"]:
                         if isinstance(content_item, dict) and "text" in content_item:
                             response_text = content_item["text"]
@@ -111,14 +115,22 @@ class InvokeResponse(BaseModel):
             # If we didn't find any message type, try the first item as fallback
             if not response_text and len(data["output"]) > 0:
                 output_item = data["output"][0]
-                if isinstance(output_item, dict) and "content" in output_item and isinstance(output_item["content"], list):
+                if (
+                    isinstance(output_item, dict)
+                    and "content" in output_item
+                    and isinstance(output_item["content"], list)
+                ):
                     for content_item in output_item["content"]:
                         if isinstance(content_item, dict) and "text" in content_item:
                             response_text = content_item["text"]
                             break
 
         # Case 5: Nested in customOutputs structure
-        if not response_text and "customOutputs" in data and isinstance(data["customOutputs"], dict):
+        if (
+            not response_text
+            and "customOutputs" in data
+            and isinstance(data["customOutputs"], dict)
+        ):
             custom = data["customOutputs"]
             if "answer" in custom:
                 if isinstance(custom["answer"], dict) and "text" in custom["answer"]:
@@ -133,8 +145,9 @@ class InvokeResponse(BaseModel):
         super().__init__(**data)
 
         # Store extra fields
-        self._extra_data = {k: v for k, v in data.items()
-                          if k not in self.__class__.__annotations__}
+        self._extra_data = {
+            k: v for k, v in data.items() if k not in self.__class__.__annotations__
+        }
 
     def __getattr__(self, name: str) -> Any:
         """Allow access to extra fields not defined in the model."""

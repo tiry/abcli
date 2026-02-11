@@ -31,7 +31,8 @@ error_console = Console(stderr=True)
 @click.group()
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.option(
-    "-c", "--config",
+    "-c",
+    "--config",
     type=click.Path(exists=True, path_type=Path),
     help="Path to configuration file",
 )

@@ -41,8 +41,14 @@ def agents() -> None:
 @agents.command("list")
 @click.option("--limit", "-l", default=50, help="Maximum number of agents to return")
 @click.option("--offset", "-o", default=0, help="Offset for pagination")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def list_agents(ctx: click.Context, limit: int, offset: int, output_format: str) -> None:
     """List all agents in the environment."""
@@ -83,8 +89,14 @@ def list_agents(ctx: click.Context, limit: int, offset: int, output_format: str)
 
 @agents.command("get")
 @click.argument("agent_id")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
     """Get details of a specific agent."""
@@ -132,13 +144,27 @@ def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
 @agents.command("create")
 @click.option("--name", "-n", required=True, help="Agent name")
 @click.option("--description", "-d", required=True, help="Agent description")
-@click.option("--type", "-t", "agent_type", required=True, help="Agent type (base, tool, rag, task)")
-@click.option("--config", "-c", "config_file", required=True, type=click.Path(exists=True),
-              help="Path to JSON config file")
+@click.option(
+    "--type", "-t", "agent_type", required=True, help="Agent type (base, tool, rag, task)"
+)
+@click.option(
+    "--config",
+    "-c",
+    "config_file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to JSON config file",
+)
 @click.option("--version-label", "-v", help="Version label (e.g., v1.0)")
 @click.option("--notes", help="Version notes")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def create_agent(
     ctx: click.Context,
@@ -206,12 +232,19 @@ def create_agent(
 
 @agents.command("update")
 @click.argument("agent_id")
-@click.option("--config", "-c", "config_file", type=click.Path(exists=True),
-              help="Path to JSON config file")
+@click.option(
+    "--config", "-c", "config_file", type=click.Path(exists=True), help="Path to JSON config file"
+)
 @click.option("--version-label", "-v", help="Version label (e.g., v2.0)")
 @click.option("--notes", help="Version notes")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def update_agent(
     ctx: click.Context,
@@ -280,8 +313,14 @@ def update_agent(
 @click.argument("agent_id")
 @click.option("--name", "-n", help="New agent name")
 @click.option("--description", "-d", help="New agent description")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def patch_agent(
     ctx: click.Context,
@@ -346,8 +385,14 @@ def delete_agent(ctx: click.Context, agent_id: str, yes: bool) -> None:
 
 
 @agents.command("types")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def list_agent_types(ctx: click.Context, output_format: str) -> None:
     """List available agent types."""

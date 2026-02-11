@@ -280,7 +280,9 @@ class AgentBuilderClient:
         print(f"  agent_type: {agent.agent_type!r}")
         print(f"  version_label: {agent.version_label!r}")
         print(f"  notes: {agent.notes!r}")
-        print(f"  config: {type(agent.config).__name__} with keys: {list(agent.config.keys()) if isinstance(agent.config, dict) else 'NOT_A_DICT'}")
+        print(
+            f"  config: {type(agent.config).__name__} with keys: {list(agent.config.keys()) if isinstance(agent.config, dict) else 'NOT_A_DICT'}"
+        )
         print("=" * 80)
 
         # Send the request and get raw response data
@@ -307,9 +309,39 @@ class AgentBuilderClient:
                 print("Will not attempt to parse as AgentVersion to avoid errors")
                 # Cast to satisfy type checking - in production this would need proper handling
                 from datetime import datetime
+
                 current_time = datetime.now().isoformat()
 
-                return AgentVersion.model_validate({
+                return AgentVersion.model_validate(
+                    {
+                        "agent": {
+                            "id": "00000000-0000-0000-0000-000000000000",
+                            "name": "Unknown",
+                            "type": "unknown",
+                            "description": "Unknown",
+                            "created_at": current_time,
+                            "created_by": "system",
+                            "modified_at": current_time,
+                        },
+                        "version": {
+                            "id": "00000000-0000-0000-0000-000000000000",
+                            "number": 1,
+                            "created_at": current_time,
+                            "created_by": "system",
+                            "config": {},
+                        },
+                    }
+                )
+        except Exception as e:
+            # Don't let validation errors fail the request if we got a successful response
+            print(f"\n[DEBUG] Error parsing response as AgentVersion: {str(e)}")
+            # Cast to satisfy type checking - in production this would need proper handling
+            from datetime import datetime
+
+            current_time = datetime.now().isoformat()
+
+            return AgentVersion.model_validate(
+                {
                     "agent": {
                         "id": "00000000-0000-0000-0000-000000000000",
                         "name": "Unknown",
@@ -317,41 +349,17 @@ class AgentBuilderClient:
                         "description": "Unknown",
                         "created_at": current_time,
                         "created_by": "system",
-                        "modified_at": current_time
+                        "modified_at": current_time,
                     },
                     "version": {
                         "id": "00000000-0000-0000-0000-000000000000",
                         "number": 1,
                         "created_at": current_time,
                         "created_by": "system",
-                        "config": {}
-                    }
-                })
-        except Exception as e:
-            # Don't let validation errors fail the request if we got a successful response
-            print(f"\n[DEBUG] Error parsing response as AgentVersion: {str(e)}")
-            # Cast to satisfy type checking - in production this would need proper handling
-            from datetime import datetime
-            current_time = datetime.now().isoformat()
-
-            return AgentVersion.model_validate({
-                "agent": {
-                    "id": "00000000-0000-0000-0000-000000000000",
-                    "name": "Unknown",
-                    "type": "unknown",
-                    "description": "Unknown",
-                    "created_at": current_time,
-                    "created_by": "system",
-                    "modified_at": current_time
-                },
-                "version": {
-                    "id": "00000000-0000-0000-0000-000000000000",
-                    "number": 1,
-                    "created_at": current_time,
-                    "created_by": "system",
-                    "config": {}
+                        "config": {},
+                    },
                 }
-            })
+            )
 
     def update_agent(self, agent_id: str | UUID, update: AgentUpdate) -> AgentVersion:
         """Update an agent (creates a new version).
@@ -389,14 +397,45 @@ class AgentBuilderClient:
             if "agent" in data and "version" in data:
                 return AgentVersion.model_validate(data)
             else:
-                print("\n[DEBUG] API returned unexpected format for agent update (no agent/version fields)")
+                print(
+                    "\n[DEBUG] API returned unexpected format for agent update (no agent/version fields)"
+                )
                 print("Will try to build an AgentVersion from the available data")
 
                 # Create a proper AgentVersion object for type checking
                 from datetime import datetime
+
                 current_time = datetime.now().isoformat()
 
-                return AgentVersion.model_validate({
+                return AgentVersion.model_validate(
+                    {
+                        "agent": {
+                            "id": "00000000-0000-0000-0000-000000000000",
+                            "name": "Unknown",
+                            "type": "unknown",
+                            "description": "Unknown",
+                            "created_at": current_time,
+                            "created_by": "system",
+                            "modified_at": current_time,
+                        },
+                        "version": {
+                            "id": "00000000-0000-0000-0000-000000000000",
+                            "number": 1,
+                            "created_at": current_time,
+                            "created_by": "system",
+                            "config": {},
+                        },
+                    }
+                )
+        except Exception as e:
+            print(f"\n[DEBUG] Error parsing update response as AgentVersion: {str(e)}")
+            # Create a minimal valid AgentVersion to satisfy type checking
+            from datetime import datetime
+
+            current_time = datetime.now().isoformat()
+
+            return AgentVersion.model_validate(
+                {
                     "agent": {
                         "id": "00000000-0000-0000-0000-000000000000",
                         "name": "Unknown",
@@ -404,40 +443,17 @@ class AgentBuilderClient:
                         "description": "Unknown",
                         "created_at": current_time,
                         "created_by": "system",
-                        "modified_at": current_time
+                        "modified_at": current_time,
                     },
                     "version": {
                         "id": "00000000-0000-0000-0000-000000000000",
                         "number": 1,
                         "created_at": current_time,
                         "created_by": "system",
-                        "config": {}
-                    }
-                })
-        except Exception as e:
-            print(f"\n[DEBUG] Error parsing update response as AgentVersion: {str(e)}")
-            # Create a minimal valid AgentVersion to satisfy type checking
-            from datetime import datetime
-            current_time = datetime.now().isoformat()
-
-            return AgentVersion.model_validate({
-                "agent": {
-                    "id": "00000000-0000-0000-0000-000000000000",
-                    "name": "Unknown",
-                    "type": "unknown",
-                    "description": "Unknown",
-                    "created_at": current_time,
-                    "created_by": "system",
-                    "modified_at": current_time
-                },
-                "version": {
-                    "id": "00000000-0000-0000-0000-000000000000",
-                    "number": 1,
-                    "created_at": current_time,
-                    "created_by": "system",
-                    "config": {}
+                        "config": {},
+                    },
                 }
-            })
+            )
 
     def patch_agent(self, agent_id: str | UUID, patch: AgentPatch) -> Agent:
         """Patch an agent's name/description without creating a new version.
@@ -659,7 +675,7 @@ class AgentBuilderClient:
                     continue
 
                 # Convert bytes to str for comparison - iter_lines might return bytes or str
-                line_str = line.decode('utf-8') if isinstance(line, bytes) else line
+                line_str = line.decode("utf-8") if isinstance(line, bytes) else line
                 if line_str.startswith("data: "):
                     try:
                         data_str = line_str[6:]
@@ -727,7 +743,7 @@ class AgentBuilderClient:
                     continue
 
                 # Convert bytes to str for comparison - iter_lines might return bytes or str
-                line_str = line.decode('utf-8') if isinstance(line, bytes) else line
+                line_str = line.decode("utf-8") if isinstance(line, bytes) else line
                 if line_str.startswith("data: "):
                     try:
                         data_str = line_str[6:]

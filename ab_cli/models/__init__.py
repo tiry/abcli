@@ -46,7 +46,6 @@ __all__ = [
     "Version",
     "VersionCreate",
     "VersionList",
-
     # Invocation models
     "ChatMessage",
     "ConversationState",
@@ -54,7 +53,6 @@ __all__ = [
     "InvokeResponse",
     "InvokeTaskRequest",
     "StreamEvent",
-
     # Resource models
     "DeprecationStatus",
     "GuardrailList",

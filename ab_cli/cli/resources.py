@@ -41,10 +41,18 @@ def resources() -> None:
 @click.option("--agent-type", "-t", help="Filter by agent type (tool, rag, task)")
 @click.option("--limit", "-l", default=50, help="Maximum number of models to return")
 @click.option("--offset", "-o", default=0, help="Offset for pagination")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
-def list_models(ctx: click.Context, agent_type: str | None, limit: int, offset: int, output_format: str) -> None:
+def list_models(
+    ctx: click.Context, agent_type: str | None, limit: int, offset: int, output_format: str
+) -> None:
     """List supported LLM models.
 
     If --agent-type is specified, only models compatible with that agent type are returned.
@@ -71,7 +79,9 @@ def list_models(ctx: click.Context, agent_type: str | None, limit: int, offset: 
 
                 for model in result.models:
                     agent_types = ", ".join(model.agent_types)
-                    regions = ", ".join(model.regions[:3]) + ("..." if len(model.regions) > 3 else "")
+                    regions = ", ".join(model.regions[:3]) + (
+                        "..." if len(model.regions) > 3 else ""
+                    )
                     deprecated = "Yes" if model.deprecation_status.deprecated else "No"
 
                     table.add_row(
@@ -107,8 +117,14 @@ def list_models(ctx: click.Context, agent_type: str | None, limit: int, offset: 
 @resources.command("guardrails")
 @click.option("--limit", "-l", default=50, help="Maximum number of guardrails to return")
 @click.option("--offset", "-o", default=0, help="Offset for pagination")
-@click.option("--format", "-f", "output_format", type=click.Choice(["table", "json", "yaml"]),
-              default="table", help="Output format")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "yaml"]),
+    default="table",
+    help="Output format",
+)
 @click.pass_context
 def list_guardrails(ctx: click.Context, limit: int, offset: int, output_format: str) -> None:
     """List supported guardrails."""
