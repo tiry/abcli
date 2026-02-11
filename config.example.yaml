@@ -1,0 +1,41 @@
+# Agent Builder CLI Configuration
+# Copy this file to config.yaml and fill in your values
+
+# HxP Environment ID (required)
+environment_id: "your-environment-id"
+
+# OAuth2 Authentication (required)
+# You can also set these via environment variables:
+# AB_CLIENT_ID and AB_CLIENT_SECRET
+client_id: "your-client-id"
+client_secret: "your-client-secret"
+
+# API Endpoints (optional - defaults shown)
+# Production: https://api.agentbuilder.experience.hyland.com/
+# Development: https://api.agentbuilder.dev.experience.hyland.com/
+api_endpoint: "https://api.agentbuilder.experience.hyland.com/"
+
+# Auth endpoint (optional - defaults shown)
+# Production: https://auth.iam.experience.hyland.com/idp/connect/token
+# Development: https://auth.iam.dev.experience.hyland.com/idp/connect/token
+auth_endpoint: "https://auth.iam.experience.hyland.com/idp/connect/token"
+
+# OAuth2 grant type (optional - default: client_credentials)
+# Supported types from IAM:
+#   - client_credentials (default, for service accounts)
+#   - urn:hyland:params:oauth:grant-type:api-credentials (for API credentials)
+# See: https://auth.iam.dev.experience.hyland.com/idp/.well-known/openid-configuration
+grant_type: "client_credentials"
+
+# OAuth2 scopes (optional)
+auth_scope:
+  - "hxp"
+
+# HTTP Settings (optional)
+timeout: 30.0       # Request timeout in seconds
+max_retries: 3      # Maximum retry attempts for transient errors
+retry_backoff: 2.0  # Exponential backoff multiplier
+
+# Output preferences (optional)
+# Options: table, json, yaml
+default_output_format: "table"

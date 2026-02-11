@@ -1,0 +1,32 @@
+{
+  "tools": [
+    {
+      "toolType": "function",
+      "name": "multiply",
+      "description": "Multiplies two numbers",
+      "funcName": "multiply",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "number",
+            "description": "First number to multiply"
+          },
+          "b": {
+            "type": "number",
+            "description": "Second number to multiply"
+          }
+        },
+        "required": ["a", "b"]
+      },
+      "mcpServerReferences": []
+    } ],
+  "llmModelId": "anthropic.claude-3-haiku-20240307-v1:0",
+  "systemPrompt": "You are a calculator assistant that can perform basic math operations.",
+  "inferenceConfig": {
+    "temperature": 0.0,
+    "maxRetries": 10,
+    "timeout": 3600,
+    "maxTokens": 4000
+  }
+}
