@@ -49,13 +49,22 @@ jobs:
         format: markdown
         output: both
         
-    # Create .github directory for badge storage
-    - name: Prepare badge directory
-      run: mkdir -p .github
-      
-    # Copy the badge to the standard location
-    - name: Copy badge to standard location
-      run: cp code-coverage-results.svg .github/coverage.svg
+    # Create .github directory and download the badge directly from shields.io
+    - name: Download coverage badge
+      run: |
+        mkdir -p .github
+        # Extract the coverage percentage from the XML file
+        COVERAGE_PCT=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+        # Determine the color based on coverage percentage
+        if [ "$COVERAGE_PCT" -lt 50 ]; then
+          COLOR="red"
+        elif [ "$COVERAGE_PCT" -lt 75 ]; then
+          COLOR="yellow"
+        else
+          COLOR="success"
+        fi
+        # Download the badge from shields.io
+        curl -s -o .github/coverage.svg "https://img.shields.io/badge/Coverage-${COVERAGE_PCT}%25-${COLOR}?style=flat"
         
     # Add coverage report as comment on PRs
     - name: Add Coverage PR Comment
