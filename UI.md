@@ -26,6 +26,9 @@ ab ui --port 8501
 
 # Don't open the browser automatically
 ab ui --no-browser
+
+# Launch UI with mock data provider (no API connection needed)
+ab ui --mock
 ```
 
 ## Main Features
@@ -67,6 +70,37 @@ The UI uses a consistent navigation pattern:
 - The currently selected page is highlighted
 - The UI maintains your state as you navigate between pages
 
+## Architecture and Design
+
+The UI is built with a clean separation between UI components and data access logic:
+
+1. **Data Provider Pattern**:
+   - Clear separation between UI components and data access
+   - Pluggable providers for different data sources
+   - Consistent API for accessing agent data and services
+
+2. **Provider Types**:
+   - **CLI Data Provider**: Uses CLI commands to interact with the API
+   - **Mock Data Provider**: Uses predefined data for development and testing
+
+3. **Configuration**:
+   - Configurable via `config.yaml` under the `ui` section
+   - Switch between providers based on your needs
+
+## UI Configuration
+
+The UI behavior can be configured in the `config.yaml` file:
+
+```yaml
+# UI Configuration
+ui:
+  # Data Provider mode: "cli" or "mock"
+  data_provider: "cli"  # Default
+  
+  # Directory for mock data (optional)
+  mock_data_dir: "path/to/mock/data"  # Default: built-in data directory
+```
+
 ## UI Improvements
 
 The UI has been improved with the following key changes:
@@ -86,6 +120,11 @@ The UI has been improved with the following key changes:
    - Improved feedback for configuration issues
    - Enhanced model information extraction with multiple fallback strategies
 
+4. **Code Organization**:
+   - Improved modularity with Data Provider pattern
+   - Eliminated code duplication across views
+   - Better testability through clean separation of concerns
+
 ## Troubleshooting
 
 ### Configuration Issues
@@ -94,6 +133,7 @@ If you encounter configuration errors:
 - Ensure your `config.yaml` file exists and is properly formatted
 - Check the API endpoint and credentials
 - Try running the CLI commands directly to verify your configuration works
+- Verify UI configuration settings if using custom data provider settings
 
 ### Navigation Problems
 
@@ -108,3 +148,34 @@ If you have issues with the chat interface:
 - Verify the agent is properly configured
 - Check if the agent is available and operational
 - Try invoking the agent directly via the CLI to check for API issues
+
+### Using Mock Data Provider
+
+There are three ways to use the mock data provider for development or testing:
+
+1. **Command-line flag (easiest):**
+   ```bash
+   # Launch UI with mock data provider
+   ab ui --mock
+   ```
+
+2. **Environment variable:**
+   ```bash
+   # Set environment variable
+   export AB_UI_DATA_PROVIDER=mock
+   
+   # Launch UI
+   ab ui
+   ```
+
+3. **Configuration setting:**
+   ```yaml
+   # In config.yaml
+   ui:
+     data_provider: "mock"
+   ```
+   Then restart the UI with `ab ui`
+
+The mock provider uses predefined data from JSON files in the `ab_cli/abui/data` directory, allowing you to test and develop the UI without needing a live API connection.
+
+When in verbose mode, the UI will show "**UI Mode: MOCK**" in the sidebar to indicate it's using mock data.

@@ -1,0 +1,36 @@
+{
+  "guardrails": [
+    {
+      "name": "moderation",
+      "description": "Content moderation guardrail that blocks harmful content",
+      "config": {
+        "blockHarmfulContent": true,
+        "alertOnPotentialViolation": true
+      }
+    },
+    {
+      "name": "pii-detection",
+      "description": "Detects and redacts personal identifiable information",
+      "config": {
+        "redactPII": true,
+        "piiTypes": ["SSN", "EMAIL", "PHONE", "CREDIT_CARD"]
+      }
+    },
+    {
+      "name": "sensitive-topics",
+      "description": "Avoids discussion of sensitive topics",
+      "config": {
+        "topicsToAvoid": ["politics", "religion", "adult content"]
+      }
+    },
+    {
+      "name": "custom-policy-1",
+      "description": "Custom organizational policy guardrail",
+      "config": {
+        "policyId": "org-policy-123",
+        "strictMode": false,
+        "allowOverride": true
+      }
+    }
+  ]
+}

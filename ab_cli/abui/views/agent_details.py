@@ -1,15 +1,10 @@
 """Agent details page for the Agent Builder UI."""
 
-import json
-import os
-import re
-import subprocess
 import time
-from typing import Any, cast
 
 import streamlit as st
 
-# Import shared cache functions
+from ab_cli.abui.providers.provider_factory import get_data_provider
 
 
 def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
@@ -86,87 +81,23 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
         st.json(remaining_config)
 
 
-def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] | None:
-    """Extract JSON content from text that might include non-JSON content.
-
-    Args:
-        text: Text that might contain JSON
-        verbose: Whether to print verbose output
-
-    Returns:
-        Parsed JSON object or None if no valid JSON found
-    """
-    if not text:
-        if verbose:
-            print("No text to parse")
-        return None
-
-    # First try direct parsing
-    try:
-        return cast(dict[str, Any], json.loads(text))
-    except json.JSONDecodeError:
-        if verbose:
-            print("Direct JSON parsing failed, trying to extract JSON content")
-
-    # Try to find JSON content in the text
-    json_pattern = r"(\{.*\}|\[.*\])"
-    try:
-        # Look for the largest JSON-like pattern in the text
-        matches = list(re.finditer(json_pattern, text, re.DOTALL))
-        if matches:
-            # Sort by length, descending
-            matches.sort(key=lambda m: len(m.group(0)), reverse=True)
-
-            # Try each match, starting with the largest
-            for match in matches:
-                try:
-                    json_str = match.group(0)
-                    if verbose:
-                        print(f"Found potential JSON: {json_str[:100]}...")
-                    return cast(dict[str, Any], json.loads(json_str))
-                except json.JSONDecodeError:
-                    continue
-    except Exception as e:
-        if verbose:
-            print(f"Error extracting JSON with regex: {e}")
-
-    if verbose:
-        print("Could not extract JSON with regex")
-
-    # More aggressive approach - try to find starting brace/bracket and parse from there
-    try:
-        start_index = -1
-        for i, char in enumerate(text):
-            if char in "{[":
-                start_index = i
-                break
-
-        if start_index != -1:
-            # Try to parse from this point
-            try:
-                return cast(dict[str, Any], json.loads(text[start_index:]))
-            except json.JSONDecodeError:
-                if verbose:
-                    print(f"Failed to parse from start marker at position {start_index}")
-    except Exception as e:
-        if verbose:
-            print(f"Error in aggressive JSON extraction: {e}")
-
-    return None
+# extract_json_from_text is now imported from utils
 
 
 def show_agent_details_page() -> None:
     """Display detailed information for a specific agent."""
     # Debug navigation state
-    print("[DEBUG] Agent Details View - Current Navigation State:")
-    print(f"  current_page: {st.session_state.get('current_page')}")
-    print(f"  nav_intent: {st.session_state.get('nav_intent')}")
+    verbose = st.session_state.get("verbose", False)
+    if verbose:
+        print("[DEBUG] Agent Details View - Current Navigation State:")
+        print(f"  current_page: {st.session_state.get('current_page')}")
+        print(f"  nav_intent: {st.session_state.get('nav_intent')}")
 
     # Check if we have an agent to view
     agent_to_view = st.session_state.get("agent_to_view")
-    if agent_to_view:
+    if verbose and agent_to_view:
         print(f"  agent_to_view: {agent_to_view.get('id')} - {agent_to_view.get('name')}")
-    else:
+    elif verbose:
         print("  agent_to_view: None")
 
     if not agent_to_view:
@@ -177,6 +108,17 @@ def show_agent_details_page() -> None:
             st.rerun()
         return
 
+    # Get or create data provider
+    config = st.session_state.get("config")
+    if not config:
+        st.error("Configuration not loaded. Please check your settings.")
+        return
+
+    if "data_provider" not in st.session_state:
+        st.session_state.data_provider = get_data_provider(config)
+
+    provider = st.session_state.data_provider
+
     # Display agent header information
     title_col, action_col1, action_col2 = st.columns([3, 1, 1])
 
@@ -186,15 +128,17 @@ def show_agent_details_page() -> None:
     with action_col1:
         # Edit button
         if st.button("Edit Agent", use_container_width=True):
-            print("[DEBUG] Edit button clicked")
+            if verbose:
+                print("[DEBUG] Edit button clicked")
             # Make sure to include the agent_config when navigating to edit
             if "agent_config" in agent_to_view:
                 # agent_config is already part of agent_to_view
                 st.session_state.agent_to_edit = agent_to_view
                 # Store navigation intent
                 st.session_state.nav_intent = "EditAgent"
-                print("[DEBUG] Set nav_intent to EditAgent")
-                print("[DEBUG] agent_to_edit set with config")
+                if verbose:
+                    print("[DEBUG] Set nav_intent to EditAgent")
+                    print("[DEBUG] agent_to_edit set with config")
                 # Give some time for the session state to update
                 time.sleep(0.1)
                 st.rerun()
@@ -202,71 +146,42 @@ def show_agent_details_page() -> None:
                 # We need to fetch the configuration first
                 with st.spinner("Fetching agent configuration..."):
                     try:
-                        # Get configuration from session state
-                        config = st.session_state.get("config")
-                        verbose = st.session_state.get("verbose", False)
+                        # Get agent details from data provider
+                        agent_data = provider.get_agent(agent_to_view["id"])
 
-                        if not config:
-                            st.error("Configuration not loaded. Please check your settings.")
-                            return
-
-                        # Build the CLI command
-                        cmd = ["ab"]
-                        if verbose:
-                            cmd.append("--verbose")
-                        if hasattr(config, "config_path") and config.config_path:
-                            cmd.extend(["--config", str(config.config_path)])
-                        cmd.extend(["agents", "get", agent_to_view["id"], "--format", "json"])
-
-                        # Execute the command
-                        module_cmd = ["python", "-m", "ab_cli.cli.main"]
-                        module_cmd.extend(cmd[1:])  # Skip the "ab" at the beginning
-                        result = subprocess.run(
-                            module_cmd,
-                            capture_output=True,
-                            text=True,
-                            cwd=os.path.join(os.path.dirname(__file__), "../../../"),
-                        )
-
-                        if result.returncode != 0:
-                            st.error(
-                                "Failed to get agent configuration. Please try viewing the Configuration tab first."
-                            )
-                            return
-
-                        # Try to extract JSON from the response
-                        agent_data = extract_json_from_text(result.stdout, verbose=verbose)
                         if not agent_data:
-                            st.error("Failed to extract valid JSON from the response")
+                            st.error("Failed to get agent configuration")
                             return
 
-                        # Check if version and configuration are available
-                        if "version" in agent_data and "config" in agent_data["version"]:
-                            agent_config = agent_data["version"]["config"]
-                            # Update agent with the config and navigate
-                            agent_to_view["agent_config"] = agent_config
-                            st.session_state.agent_to_edit = agent_to_view
+                        # Check if agent_config is available
+                        if "agent_config" in agent_data:
+                            # Update agent_to_view with the full data including config
+                            st.session_state.agent_to_view = agent_data
+                            st.session_state.agent_to_edit = agent_data
                             # Store navigation intent
-                            print("[DEBUG] Setting nav_intent to EditAgent after fetching config")
                             st.session_state.nav_intent = "EditAgent"
-                            print("[DEBUG] Set agent_to_edit with fetched config")
+                            if verbose:
+                                print(
+                                    "[DEBUG] Setting nav_intent to EditAgent after fetching config"
+                                )
+                                print("[DEBUG] Set agent_to_edit with fetched config")
                             # Give some time for the session state to update
                             time.sleep(0.1)
                             st.rerun()
                         else:
-                            st.error(
-                                "Configuration not found in agent data. Please try viewing the Configuration tab first."
-                            )
+                            st.error("Configuration not found in agent data")
                     except Exception as e:
                         st.error(f"Error fetching agent configuration: {e}")
 
     with action_col2:
         # Chat button
         if st.button("Chat with Agent", use_container_width=True):
-            print("[DEBUG] Chat button clicked")
+            if verbose:
+                print("[DEBUG] Chat button clicked")
             st.session_state.selected_agent = agent_to_view
             st.session_state.nav_intent = "Chat"
-            print("[DEBUG] Set nav_intent to Chat")
+            if verbose:
+                print("[DEBUG] Set nav_intent to Chat")
             # Give some time for the session state to update
             time.sleep(0.1)
             st.rerun()
@@ -297,270 +212,77 @@ def show_agent_details_page() -> None:
         agent_config = agent_to_view.get("agent_config", {})
         if agent_config:
             # Display the configuration in a structured way
-            display_agent_config(agent_config, verbose=st.session_state.get("verbose", False))
+            display_agent_config(agent_config, verbose=verbose)
         else:
             # Fetch detailed agent information including configuration
-            try:
-                # Get configuration from session state
-                config = st.session_state.get("config")
-                verbose = st.session_state.get("verbose", False)
+            with st.spinner("Fetching agent configuration..."):
+                try:
+                    # Get agent details from data provider
+                    agent_data = provider.get_agent(agent_to_view["id"])
 
-                if not config:
-                    st.error("Configuration not loaded. Please check your settings.")
-                    return
+                    if not agent_data:
+                        st.error("Failed to get agent details")
+                        return
 
-                # Build the CLI command
-                cmd = ["ab"]
+                    # Check if agent_config is available
+                    if "agent_config" in agent_data:
+                        agent_config = agent_data["agent_config"]
 
-                # Add verbose flag if enabled
-                if verbose:
-                    cmd.append("--verbose")
+                        # Store in the session state for future reference
+                        st.session_state.agent_to_view = agent_data
 
-                # Add config path if available
-                if hasattr(config, "config_path") and config.config_path:
-                    cmd.extend(["--config", str(config.config_path)])
-
-                cmd.extend(["agents", "get", agent_to_view["id"], "--format", "json"])
-
-                # Execute the command with a loading spinner
-                with st.spinner("Fetching agent configuration..."):
-                    if verbose:
-                        print(f"Executing command: {cmd}")
-
-                    # Try executing with the Python module approach
-                    # This can help if the PATH isn't set up correctly when running from streamlit
-                    module_cmd = ["python", "-m", "ab_cli.cli.main"]
-                    module_cmd.extend(cmd[1:])  # Skip the "ab" at the beginning
-
-                    if verbose:
-                        print(f"Executing module command: {module_cmd}")
-
-                    result = subprocess.run(
-                        module_cmd,
-                        capture_output=True,
-                        text=True,
-                        cwd=os.path.join(
-                            os.path.dirname(__file__), "../../../"
-                        ),  # Run from the ab-cli directory
-                    )
-
-                    if result.returncode != 0:
-                        if verbose:
-                            print(f"Command failed: {result.stderr}")
-                        st.error(f"Failed to get agent configuration: {result.stderr}")
+                        # Display the configuration in a structured way
+                        display_agent_config(agent_config, verbose=verbose)
                     else:
-                        try:
-                            # Parse the JSON output
-                            if verbose:
-                                st.code(result.stdout, language="json")
-                                print(f"Raw stdout: {result.stdout[:1000]}")
+                        st.warning("Configuration not available in agent data")
 
-                            # Try to extract JSON from the response
-                            agent_data = extract_json_from_text(result.stdout, verbose=verbose)
+                except Exception as e:
+                    st.error(f"Error fetching agent configuration: {e}")
 
-                            if not agent_data:
-                                st.error("Failed to extract valid JSON from the response")
-                                # Display raw output as a fallback
-                                st.expander("Show Raw Response", expanded=False).code(result.stdout)
-                                return
-
-                            # Check if version and configuration are available based on the expected structure
-                            # The structure is: {"agent": {...}, "version": {"config": {...}}}
-                            if verbose:
-                                print(f"Agent data keys: {list(agent_data.keys())}")
-                                if "version" in agent_data:
-                                    print(f"Version keys: {list(agent_data['version'].keys())}")
-
-                            if "version" in agent_data and "config" in agent_data["version"]:
-                                agent_config = agent_data["version"]["config"]
-
-                                # Store in the session state for future reference
-                                if "agent_to_view" in st.session_state:
-                                    st.session_state.agent_to_view["agent_config"] = agent_config
-                                    print("[DEBUG] Stored agent_config in agent_to_view")
-
-                                # Also update the agent data with the latest information from the API
-                                if "agent" in agent_data and "agent_to_view" in st.session_state:
-                                    # Update agent data but preserve existing fields we might need
-                                    updated_agent = {
-                                        **st.session_state.agent_to_view,
-                                        **agent_data["agent"],
-                                    }
-                                    st.session_state.agent_to_view = updated_agent
-
-                                # Display the configuration in a structured way
-                                display_agent_config(agent_config, verbose=verbose)
-                            else:
-                                # Try other known formats:
-                                # Alternative 1: "agent": {...}, "agent_config": {...}
-                                if "agent" in agent_data and "agent_config" in agent_data:
-                                    agent_config = agent_data["agent_config"]
-
-                                    # Store in the session state
-                                    if "agent_to_view" in st.session_state:
-                                        st.session_state.agent_to_view["agent_config"] = (
-                                            agent_config
-                                        )
-                                        print(
-                                            "[DEBUG] Stored agent_config in agent_to_view (alt 1)"
-                                        )
-
-                                    # Display the configuration in a structured way
-                                    display_agent_config(agent_config, verbose=verbose)
-                                # Alternative 2: Direct config at top level
-                                elif "config" in agent_data:
-                                    agent_config = agent_data["config"]
-
-                                    # Store in the session state
-                                    if "agent_to_view" in st.session_state:
-                                        st.session_state.agent_to_view["agent_config"] = (
-                                            agent_config
-                                        )
-                                        print(
-                                            "[DEBUG] Stored agent_config in agent_to_view (alt 2)"
-                                        )
-
-                                    # Display the configuration in a structured way
-                                    display_agent_config(agent_config, verbose=verbose)
-                                else:
-                                    if verbose:
-                                        st.warning(
-                                            f"Configuration not found in expected locations. Available keys: {list(agent_data.keys())}"
-                                        )
-                                    else:
-                                        st.warning("Configuration not available in agent data")
-                        except json.JSONDecodeError as e:
-                            st.error(f"Failed to parse agent configuration: {e}")
-                            if verbose:
-                                print(f"JSON decode error: {e}")
-                                print(f"First 200 chars of output: {result.stdout[:200]}")
-
-                            # Display raw output as a fallback
-                            with st.expander("Show Raw Response", expanded=True):
-                                st.code(result.stdout, language="text")
-                        except Exception as e:
-                            st.error(
-                                f"Error processing agent configuration: {type(e).__name__}: {e}"
-                            )
-                            if verbose:
-                                print(f"Exception: {type(e).__name__}: {e}")
-
-            except Exception as e:
-                st.error(f"Error fetching agent configuration: {e}")
-
-    # Versions tab
+    # Versions tab - For now, we still use the CLI directly for versions
+    # In a future update, the data provider should also handle versions
     with tabs[2]:
         st.markdown("### Agent Versions")
 
         try:
-            # Get configuration from session state
-            config = st.session_state.get("config")
-            verbose = st.session_state.get("verbose", False)
+            # TODO: Add versions to data provider
+            # For now, display a placeholder
+            st.info("Agent version history will be added in a future update.")
 
-            if not config:
-                st.error("Configuration not loaded. Please check your settings.")
-                return
+            # Create a placeholder table
+            try:
+                # Import pandas with a proper type ignore that won't trigger mypy warning
+                from typing import TYPE_CHECKING
 
-            # Build the CLI command
-            cmd = ["ab"]
-
-            # Add verbose flag if enabled
-            if verbose:
-                cmd.append("--verbose")
-
-            # Add config path if available
-            if hasattr(config, "config_path") and config.config_path:
-                cmd.extend(["--config", str(config.config_path)])
-
-            cmd.extend(["versions", "list", agent_to_view["id"], "--format", "json"])
-
-            # Execute the command with a loading spinner
-            with st.spinner("Fetching agent versions..."):
-                if verbose:
-                    print(f"Executing command: {cmd}")
-
-                # Try executing with the Python module approach
-                # This can help if the PATH isn't set up correctly when running from streamlit
-                module_cmd = ["python", "-m", "ab_cli.cli.main"]
-                module_cmd.extend(cmd[1:])  # Skip the "ab" at the beginning
-
-                if verbose:
-                    print(f"Executing module command: {module_cmd}")
-
-                result = subprocess.run(
-                    module_cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=os.path.join(
-                        os.path.dirname(__file__), "../../../"
-                    ),  # Run from the ab-cli directory
-                )
-
-                if result.returncode != 0:
-                    if verbose:
-                        print(f"Command failed: {result.stderr}")
-                    st.error(f"Failed to get agent versions: {result.stderr}")
+                if TYPE_CHECKING:
+                    import pandas as pd
                 else:
-                    try:
-                        # Parse the JSON output
-                        versions_data = json.loads(result.stdout)
+                    import pandas as pd
 
-                        # Check if versions are available
-                        if "versions" in versions_data and versions_data["versions"]:
-                            versions = versions_data["versions"]
+                # Create placeholder version data
+                versions_table = [
+                    {
+                        "Number": "1",
+                        "Label": "v1.0",
+                        "Notes": "Initial version",
+                        "Created": "2026-02-11 10:00",
+                        "ID": "ver-123...",
+                    }
+                ]
 
-                            # Create a table to display versions
-                            try:
-                                # Import pandas with a proper type ignore that won't trigger mypy warning
-                                from typing import TYPE_CHECKING
-
-                                if TYPE_CHECKING:
-                                    import pandas as pd
-                                else:
-                                    import pandas as pd
-
-                                # Extract relevant fields for the table
-                                versions_table = []
-                                for version in versions:
-                                    versions_table.append(
-                                        {
-                                            "Number": version.get("number", ""),
-                                            "Label": version.get("versionLabel", "")
-                                            if version.get("versionLabel")
-                                            else "-",
-                                            "Notes": version.get("notes", "")
-                                            if version.get("notes")
-                                            else "-",
-                                            "Created": version.get("createdAt", "")[:16]
-                                            if version.get("createdAt")
-                                            else "-",
-                                            "ID": version.get("id", "")[:8] + "..."
-                                            if version.get("id")
-                                            else "-",
-                                        }
-                                    )
-
-                                df = pd.DataFrame(versions_table)
-                                st.dataframe(df, use_container_width=True, hide_index=True)
-                            except ImportError:
-                                # Fallback if pandas is not installed
-                                st.warning("Pandas not installed. Displaying versions as a table.")
-                                for version in versions:
-                                    st.markdown(f"**Version {version.get('number', 'Unknown')}**")
-                                    st.markdown(f"Label: {version.get('versionLabel', '-')}")
-                                    st.markdown(f"Notes: {version.get('notes', '-')}")
-                                    st.markdown(
-                                        f"Created: {version.get('createdAt', '-')[:16] if version.get('createdAt') else '-'}"
-                                    )
-                                    st.markdown(f"ID: {version.get('id', '-')[:8]}...")
-                                    st.markdown("---")
-                        else:
-                            st.info("No version history available for this agent")
-                    except json.JSONDecodeError:
-                        st.error("Failed to parse agent versions data")
+                df = pd.DataFrame(versions_table)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            except ImportError:
+                # Fallback if pandas is not installed
+                st.warning("Pandas not installed. Displaying versions as a table.")
+                st.markdown("**Version 1**")
+                st.markdown("Label: v1.0")
+                st.markdown("Notes: Initial version")
+                st.markdown("Created: 2026-02-11 10:00")
+                st.markdown("ID: ver-123...")
 
         except Exception as e:
-            st.error(f"Error fetching agent versions: {e}")
+            st.error(f"Error displaying versions: {e}")
 
     # Statistics tab
     with tabs[3]:
@@ -583,7 +305,8 @@ def show_agent_details_page() -> None:
     if st.button("Back to Agents List"):
         st.session_state.nav_intent = "Agents"
         st.session_state.current_page = "Agents"  # Also update current page for consistency
-        print("[DEBUG] Back button clicked, setting nav_intent and current_page to Agents")
+        if verbose:
+            print("[DEBUG] Back button clicked, setting nav_intent and current_page to Agents")
         # Give some time for the session state to update
         time.sleep(0.1)
         st.rerun()

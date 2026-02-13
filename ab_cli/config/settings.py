@@ -129,6 +129,54 @@ class ABSettings(BaseSettings):
         ),
     ]
 
+    # UI Configuration
+    class UISettings(BaseSettings):
+        """UI-specific settings."""
+
+        data_provider: Annotated[
+            str,
+            Field(
+                default="cli",
+                description="Data provider to use (cli or mock)",
+            ),
+        ]
+
+        mock_data_dir: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description="Directory containing mock data files",
+            ),
+        ]
+
+        @field_validator("data_provider")
+        @classmethod
+        def validate_data_provider(cls, v: str) -> str:
+            """Validate data provider is one of the allowed values.
+
+            Args:
+                v: The data provider value.
+
+            Returns:
+                The validated data provider in lowercase.
+
+            Raises:
+                ValueError: If the data provider is not allowed.
+            """
+            allowed = {"cli", "mock"}
+            v_lower = v.lower()
+            if v_lower not in allowed:
+                raise ValueError(f"Data provider must be one of {allowed}, got: {v}")
+            return v_lower
+
+    ui: Annotated[
+        UISettings | None,
+        Field(
+            default=None,
+            description="UI configuration settings",
+        ),
+    ] = None
+
     @field_validator("api_endpoint", "auth_endpoint")
     @classmethod
     def validate_url(cls, v: str) -> str:
@@ -209,6 +257,7 @@ def get_config_summary(settings: ABSettings) -> dict[str, str]:
         "max_retries": str(settings.max_retries),
         "default_output_format": settings.default_output_format,
         "record_updates": str(settings.record_updates),
+        "ui.data_provider": settings.ui.data_provider if settings.ui else "cli",
     }
 
 

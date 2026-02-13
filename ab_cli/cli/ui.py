@@ -22,9 +22,15 @@ error_console = Console(stderr=True)
 )
 @click.option("--no-browser", is_flag=True, help="Don't open browser automatically")
 @click.option("--verbose", is_flag=True, help="Enable verbose output for CLI commands")
+@click.option("--mock", is_flag=True, help="Use mock data provider instead of CLI provider")
 @click.pass_context
 def ui(
-    ctx: click.Context, port: int, config_path: Path | None, no_browser: bool, verbose: bool
+    ctx: click.Context,
+    port: int,
+    config_path: Path | None,
+    no_browser: bool,
+    verbose: bool,
+    mock: bool,
 ) -> int:
     """Launch the Agent Builder UI in a web browser.
 
@@ -61,6 +67,12 @@ def ui(
 
     # Use the abui module from ab_cli package
     try:
+        # If mock is set, set the environment variable
+        if mock:
+            os.environ["AB_UI_DATA_PROVIDER"] = "mock"
+            if verbose:
+                print("Mock mode enabled: Using mock data provider")
+
         # The app.py is directly in the abui module
         app_path = os.path.join(os.path.dirname(__file__), "..", "abui", "app.py")
 
@@ -70,7 +82,7 @@ def ui(
         if no_browser:
             cmd.append("--server.headless")
 
-        has_cli_options = config_path or verbose
+        has_cli_options = config_path or verbose or mock
 
         if has_cli_options:
             cmd.append("--")
@@ -80,6 +92,10 @@ def ui(
 
         if verbose:
             cmd.extend(["--verbose", "true"])
+
+        if mock:
+            # Also pass mock flag to the app
+            cmd.extend(["--mock", "true"])
 
         console.print(f"[cyan]Launching Agent Builder UI on port {port}...[/cyan]")
 

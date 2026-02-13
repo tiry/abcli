@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "id": "gpt-4",
+      "provider": "OpenAI",
+      "description": "Most capable GPT-4 model for complex tasks"
+    },
+    {
+      "id": "gpt-3.5-turbo",
+      "provider": "OpenAI",
+      "description": "Fast and efficient GPT-3.5 model"
+    },
+    {
+      "id": "claude-3",
+      "provider": "Anthropic",
+      "description": "Latest Claude model with advanced reasoning"
+    },
+    {
+      "id": "claude-2",
+      "provider": "Anthropic",
+      "description": "Previous generation Claude model"
+    },
+    {
+      "id": "mistral-large",
+      "provider": "Mistral AI",
+      "description": "Large language model from Mistral AI"
+    },
+    {
+      "id": "llama-3",
+      "provider": "Meta",
+      "description": "Open-source large language model from Meta"
+    }
+  ]
+}

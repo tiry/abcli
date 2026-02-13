@@ -95,6 +95,11 @@ strict_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 
+# Disable no-any-return for the data providers since they deal with dynamic JSON data
+[[tool.mypy.overrides]]
+module = "ab_cli.abui.providers.*"
+disable_error_code = ["no-any-return"]
+
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false

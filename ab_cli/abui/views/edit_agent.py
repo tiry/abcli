@@ -1,15 +1,11 @@
 """Edit Agent page for the Agent Builder UI."""
 
-import contextlib
 import json
-import os
-import subprocess
-import tempfile
 from typing import Any
 
 import streamlit as st
 
-# Import the model and guardrail functions from agents.py to use the cache
+# Import functions from agents.py
 from ab_cli.abui.views.agents import clear_cache, get_guardrails, get_models
 
 
@@ -22,6 +18,21 @@ def show_edit_agent_page() -> None:
         st.title(f"Edit Agent: {agent_to_edit.get('name', 'Unknown Agent')}")
     else:
         st.title("Create New Agent")
+
+    # Get data provider from session state
+    if "data_provider" not in st.session_state:
+        # Get configuration from session state
+        config = st.session_state.get("config")
+        if not config:
+            st.error("Configuration not loaded. Please check your settings.")
+            return
+
+        # Create data provider
+        from ab_cli.abui.providers.provider_factory import get_data_provider
+
+        st.session_state.data_provider = get_data_provider(config)
+
+    provider = st.session_state.data_provider
 
     # Create a form for agent creation or editing
     with st.form("agent_form"):
@@ -49,7 +60,7 @@ def show_edit_agent_page() -> None:
             else 0,
         )
 
-        # Model selection (fetched from CLI)
+        # Model selection (fetched from data provider)
         models = get_models()
         # Get model from agent_config if available, otherwise use default_model
         current_model = agent_config.get("llmModelId", default_model)
@@ -62,7 +73,7 @@ def show_edit_agent_page() -> None:
         )
         system_prompt = st.text_area("System Prompt", value=default_prompt, height=150)
 
-        # Guardrails selection (fetched from CLI)
+        # Guardrails selection (fetched from data provider)
         guardrails = get_guardrails()
         default_guardrails = agent_config.get("guardrails", [])
         selected_guardrails = st.multiselect(
@@ -122,7 +133,6 @@ def show_edit_agent_page() -> None:
 
         with col2:
             # The "cancel" button needs to be outside the form since forms only allow one submit button
-            # We'll implement its logic after the form
             pass
 
         if submitted:
@@ -130,14 +140,6 @@ def show_edit_agent_page() -> None:
                 st.error("Agent name is required")
             else:
                 try:
-                    # Get configuration from session state
-                    config = st.session_state.get("config")
-                    verbose = st.session_state.get("verbose", False)
-
-                    if not config:
-                        st.error("Configuration not loaded. Please check your settings.")
-                        return
-
                     # Parse the JSON inputs
                     try:
                         inference_config = json.loads(inference_json)
@@ -163,126 +165,53 @@ def show_edit_agent_page() -> None:
                     if agent_type == "task" and schema_json.strip():
                         agent_config["inputSchema"] = input_schema
 
-                    # Create a temporary file for the config
-                    with tempfile.NamedTemporaryFile(
-                        mode="w", suffix=".json", delete=False
-                    ) as tmp_config:
-                        json.dump(agent_config, tmp_config, indent=2)
-                        tmp_config_path = tmp_config.name
+                    # Create the agent data dictionary
+                    agent_data = {
+                        "name": name,
+                        "description": description,
+                        "type": agent_type,
+                        "agent_config": agent_config,
+                    }
 
-                    try:
-                        # Build the CLI command based on whether we're creating or updating
-                        cmd = ["ab"]
+                    # Add version information for updates
+                    if agent_to_edit:
+                        agent_data["version_label"] = "v2.0"
+                        agent_data["notes"] = "UpdatedViaUI"
+                    else:
+                        agent_data["version_label"] = "v1.0"
+                        agent_data["notes"] = "Initial version"
 
-                        # Add verbose flag if enabled
-                        if verbose:
-                            cmd.append("--verbose")
-
-                        # Add config path if available
-                        if hasattr(config, "config_path") and config.config_path:
-                            cmd.extend(["--config", str(config.config_path)])
-
-                        if agent_to_edit:
-                            # Update existing agent
-                            cmd.extend(
-                                [
-                                    "agents",
-                                    "update",
-                                    agent_to_edit["id"],
-                                    "--agent-config",
-                                    tmp_config_path,
-                                    "--version-label",
-                                    "v2.0",  # You could make this dynamic
-                                    "--notes",
-                                    "UpdatedViaUI",
-                                ]
-                            )
-                            action_type = "update"
-                        else:
-                            # Create new agent
-                            cmd.extend(
-                                [
-                                    "agents",
-                                    "create",
-                                    "--name",
-                                    name,
-                                    "--description",
-                                    description if description else "",
-                                    "--type",
-                                    agent_type,
-                                    "--agent-config",
-                                    tmp_config_path,
-                                    "--version-label",
-                                    "v1.0",  # You could make this dynamic
-                                    "--notes",
-                                    "Initial version",
-                                ]
-                            )
-                            action_type = "create"
-
-                        # Execute the command with a loading spinner
-                        with st.spinner(f"{'Updating' if agent_to_edit else 'Creating'} agent..."):
-                            if verbose:
-                                print(f"Executing command: {cmd}")
-
-                            # Try executing with the Python module approach
-                            # This can help if the PATH isn't set up correctly when running from streamlit
-                            module_cmd = ["python", "-m", "ab_cli.cli.main"]
-                            module_cmd.extend(cmd[1:])  # Skip the "ab" at the beginning
-
-                            if verbose:
-                                print(f"Executing module command: {module_cmd}")
-
-                            result = subprocess.run(
-                                module_cmd,
-                                capture_output=True,
-                                text=True,
-                                cwd=os.path.join(
-                                    os.path.dirname(__file__), "../../../"
-                                ),  # Run from the ab-cli directory
-                            )
-
-                            if result.returncode != 0:
-                                if verbose:
-                                    print(f"Command failed with return code {result.returncode}")
-                                    print(f"STDERR: {result.stderr}")
-                                    print(f"STDOUT: {result.stdout}")
-
-                                # Show error details in the UI
-                                st.error(f"Failed to {action_type} agent")
-                                with st.expander("Error Details", expanded=True):
-                                    st.markdown("### Command Output")
-                                    if result.stdout:
-                                        st.markdown("**Standard Output:**")
-                                        st.code(result.stdout)
-
-                                    if result.stderr:
-                                        st.markdown("**Error Output:**")
-                                        st.code(result.stderr)
-                                    else:
-                                        st.markdown("*No error output was returned.*")
-
-                                    st.markdown("**Command Used:**")
-                                    st.code(" ".join(cmd))
-
-                                # Display the agent configuration that was attempted
-                                with st.expander("Configuration Attempted", expanded=False):
-                                    st.json(agent_config)
+                    # Use data provider to create/update agent
+                    with st.spinner(f"{'Updating' if agent_to_edit else 'Creating'} agent..."):
+                        try:
+                            if agent_to_edit:
+                                # Update existing agent
+                                provider.update_agent(agent_to_edit["id"], agent_data)
+                                action_type = "update"
                             else:
-                                st.success(f"Agent '{name}' {action_type}d successfully!")
+                                # Create new agent
+                                provider.create_agent(agent_data)
+                                action_type = "create"
 
-                                # Clear the agent listing cache before returning
-                                clear_cache()
+                            # Success!
+                            st.success(f"Agent '{name}' {action_type}d successfully!")
 
-                                # Return to agents list
-                                st.session_state.agent_to_edit = None
-                                st.session_state.nav_intent = "Agents"
-                                st.rerun()
+                            # Clear the cache before returning
+                            clear_cache()
 
-                    finally:
-                        # Clean up the temporary file - using contextlib.suppress to properly handle exceptions
-                        with contextlib.suppress(FileNotFoundError, PermissionError):
-                            os.unlink(tmp_config_path)
+                            # Return to agents list
+                            st.session_state.agent_to_edit = None
+                            st.session_state.nav_intent = "Agents"
+                            st.rerun()
+
+                        except Exception as e:
+                            # Show error details in the UI
+                            st.error(f"Failed to {action_type} agent: {str(e)}")
+
+                            # Display the agent configuration that was attempted
+                            with st.expander("Configuration Attempted", expanded=False):
+                                st.json(agent_config)
+
                 except Exception as e:
                     st.error(f"Error {'updating' if agent_to_edit else 'creating'} agent: {e}")
 
@@ -295,6 +224,3 @@ def show_edit_agent_page() -> None:
         # Navigate back to agents list
         st.session_state.nav_intent = "Agents"
         st.rerun()
-
-
-# These functions are now imported from agents.py to use the shared cache

@@ -44,3 +44,15 @@ default_output_format: "table"
 # When enabled, API payloads for create/update operations will be saved
 # to the 'audit' folder next to the config file
 record_updates: false
+
+# UI Configuration (optional)
+ui:
+  # Data Provider mode: "cli" or "mock"
+  # - cli: Use CLI commands to interact with the API (default)
+  # - mock: Use mock data for development and testing
+  data_provider: "cli"
+  
+  # Directory containing mock data files (optional)
+  # Only used when data_provider is "mock"
+  # Default: ab_cli/abui/data
+  mock_data_dir: ""

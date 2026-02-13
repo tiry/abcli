@@ -1,0 +1,85 @@
+{
+  "agents": [
+    {
+      "id": "agent-123",
+      "name": "Demo Agent",
+      "description": "A sample agent for demonstration purposes",
+      "type": "chat",
+      "status": "CREATED",
+      "created_at": "2026-02-11T10:00:00Z",
+      "agent_config": {
+        "llmModelId": "gpt-4",
+        "systemPrompt": "You are a helpful chat assistant.",
+        "guardrails": ["moderation", "pii-detection"],
+        "inferenceConfig": {
+          "temperature": 0.7,
+          "maxRetries": 3,
+          "timeout": 1800,
+          "maxTokens": 4000
+        },
+        "tools": []
+      }
+    },
+    {
+      "id": "agent-456",
+      "name": "Task Helper",
+      "description": "Assists with task completion",
+      "type": "task",
+      "status": "CREATED",
+      "created_at": "2026-02-10T14:30:00Z",
+      "agent_config": {
+        "llmModelId": "claude-3",
+        "systemPrompt": "You are a task assistant that helps users complete tasks step by step.",
+        "guardrails": ["sensitive-topics"],
+        "inferenceConfig": {
+          "temperature": 0.2,
+          "maxRetries": 2,
+          "timeout": 2400,
+          "maxTokens": 8000
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "taskDescription": {
+              "type": "string",
+              "description": "Description of the task to complete"
+            },
+            "deadline": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Optional deadline for task completion"
+            }
+          },
+          "required": ["taskDescription"]
+        },
+        "tools": []
+      }
+    },
+    {
+      "id": "agent-789",
+      "name": "RAG Assistant",
+      "description": "Retrieval-augmented generation agent",
+      "type": "rag",
+      "status": "CREATED",
+      "created_at": "2026-02-12T09:15:00Z",
+      "agent_config": {
+        "llmModelId": "gpt-4",
+        "systemPrompt": "You are a RAG assistant that can retrieve relevant information to answer questions.",
+        "guardrails": ["moderation"],
+        "inferenceConfig": {
+          "temperature": 0.3,
+          "maxRetries": 3,
+          "timeout": 1800,
+          "maxTokens": 6000
+        },
+        "tools": [
+          {
+            "type": "retrieval",
+            "name": "document_retrieval",
+            "description": "Retrieves relevant documents from the knowledge base"
+          }
+        ]
+      }
+    }
+  ]
+}

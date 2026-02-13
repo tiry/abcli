@@ -11,7 +11,15 @@ from ab_cli.config import load_config
 parser = argparse.ArgumentParser(description="Agent Builder UI")
 parser.add_argument("--config", type=str, help="Path to configuration file")
 parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+parser.add_argument("--mock", action="store_true", help="Use mock data provider")
 args = parser.parse_args()
+
+# If mock flag is provided, set environment variable to force mock provider
+if args.mock:
+    import os
+
+    os.environ["AB_UI_DATA_PROVIDER"] = "mock"
+    print("Mock mode enabled via command line flag")
 
 # Configure the page
 st.set_page_config(
@@ -50,6 +58,15 @@ try:
 
     # Store settings in session state
     st.session_state.config = settings
+
+    # Store verbose flag in session state
+    st.session_state.verbose = args.verbose
+
+    # Log UI configuration if verbose is enabled
+    if args.verbose and hasattr(settings, "ui") and settings.ui:
+        print("\nUI Configuration:")
+        print(f"  data_provider: {settings.ui.data_provider}")
+        print(f"  mock_data_dir: {settings.ui.mock_data_dir or '(default)'}")
 
     # Create API client if config is valid
     from ab_cli.api.client import AgentBuilderClient
@@ -91,6 +108,20 @@ st.markdown(
 # Use the local logo.png file instead of the external URL
 logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
 st.sidebar.image(logo_path, width=250)
+
+# Add UI configuration indicator in sidebar if in verbose mode
+if st.session_state.get("verbose", False):
+    ui_config = (
+        st.session_state.config.ui
+        if hasattr(st.session_state.config, "ui") and st.session_state.config.ui
+        else None
+    )
+    data_provider = (
+        ui_config.data_provider if ui_config and hasattr(ui_config, "data_provider") else "cli"
+    )
+
+    st.sidebar.markdown(f"**UI Mode:** {data_provider.upper()}")
+    st.sidebar.markdown("---")
 
 # Navigation in sidebar
 st.sidebar.title("Navigation")
