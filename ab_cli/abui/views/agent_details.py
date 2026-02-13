@@ -244,61 +244,17 @@ def show_agent_details_page() -> None:
     with tabs[2]:
         st.markdown("### Agent Versions")
 
-        try:
-            # TODO: Add versions to data provider
-            # For now, display a placeholder
-            st.info("Agent version history will be added in a future update.")
-
-            # Create a placeholder table
-            try:
-                # Import pandas with a proper type ignore that won't trigger mypy warning
-                from typing import TYPE_CHECKING
-
-                if TYPE_CHECKING:
-                    import pandas as pd
-                else:
-                    import pandas as pd
-
-                # Create placeholder version data
-                versions_table = [
-                    {
-                        "Number": "1",
-                        "Label": "v1.0",
-                        "Notes": "Initial version",
-                        "Created": "2026-02-11 10:00",
-                        "ID": "ver-123...",
-                    }
-                ]
-
-                df = pd.DataFrame(versions_table)
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            except ImportError:
-                # Fallback if pandas is not installed
-                st.warning("Pandas not installed. Displaying versions as a table.")
-                st.markdown("**Version 1**")
-                st.markdown("Label: v1.0")
-                st.markdown("Notes: Initial version")
-                st.markdown("Created: 2026-02-11 10:00")
-                st.markdown("ID: ver-123...")
-
-        except Exception as e:
-            st.error(f"Error displaying versions: {e}")
+        # Display information about version feature being unavailable
+        st.warning("Version history functionality is not yet implemented in the data provider")
+        st.info("This feature will be available in a future update")
 
     # Statistics tab
     with tabs[3]:
         st.markdown("### Agent Statistics")
-        st.info("Agent usage statistics will be displayed here in a future update.")
 
-        # Placeholder for stats
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.metric(label="Total Invocations", value="0")
-            st.metric(label="Success Rate", value="0%")
-
-        with col2:
-            st.metric(label="Average Response Time", value="0 ms")
-            st.metric(label="Last Invoked", value="Never")
+        # Display information about statistics feature being unavailable
+        st.warning("Agent statistics functionality is not yet implemented in the data provider")
+        st.info("This feature will be available in a future update")
 
     # Add a button to go back to the agents list
     st.markdown("---")

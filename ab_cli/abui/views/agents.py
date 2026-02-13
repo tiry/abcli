@@ -344,14 +344,9 @@ def get_models() -> list[str]:
     if not provider:
         return []
 
-    try:
-        with st.spinner("Loading models..."):
-            models = provider.get_models()
-            return cast(list[str], models)
-    except Exception as e:
-        print(f"Error fetching models: {e}")
-        # Fallback data
-        return ["gpt-4", "gpt-3.5-turbo", "claude-3", "claude-2", "mistral-large"]
+    with st.spinner("Loading models..."):
+        models = provider.get_models()
+        return cast(list[str], models)
 
 
 def get_guardrails() -> list[str]:
@@ -365,11 +360,6 @@ def get_guardrails() -> list[str]:
     if not provider:
         return []
 
-    try:
-        with st.spinner("Loading guardrails..."):
-            guardrails = provider.get_guardrails()
-            return cast(list[str], guardrails)
-    except Exception as e:
-        print(f"Error fetching guardrails: {e}")
-        # Fallback data
-        return ["moderation", "pii-detection", "sensitive-topics", "custom-policy-1"]
+    with st.spinner("Loading guardrails..."):
+        guardrails = provider.get_guardrails()
+        return cast(list[str], guardrails)
