@@ -455,6 +455,15 @@ Configuration:
 
 ## Agent Invocation
 
+The Agent Builder CLI supports several advanced features for agent invocation:
+
+| Option | Description |
+|--------|-------------|
+| `--hxql-query` | HXQL query string for document retrieval |
+| `--hybrid-search` | Enable hybrid search (combines semantic and keyword search) |
+| `--deep-search` | Enable deep search for more thorough document analysis |
+| `--guardrails` | Apply content moderation guardrails (can specify multiple) |
+
 ### Chat Invocation
 
 ```bash
@@ -466,6 +475,18 @@ ab invoke chat <agent-id> --message "What is 5 * 7?" --format json
 
 # Chat with streaming responses
 ab invoke chat <agent-id> --message "What is 5 * 7?" --stream
+
+# Use HXQL query for document retrieval
+ab invoke chat <agent-id> --message "Summarize document ACME-001" --hxql-query "SELECT * FROM documents WHERE id='ACME-001'"
+
+# Enable hybrid search for better document retrieval
+ab invoke chat <agent-id> --message "What do we know about solar panels?" --hybrid-search
+
+# Apply guardrails for content moderation
+ab invoke chat <agent-id> --message "Tell me about cybersecurity" --guardrails "HAIP-Insults-Low" --guardrails "HAIP-Hate-High"
+
+# Combine multiple options
+ab invoke chat <agent-id> --message "Analyze our financial report" --hybrid-search --deep-search --guardrails "PII-Detection"
 ```
 
 **Example Output:**
@@ -499,6 +520,15 @@ ab invoke task <agent-id> --input-file input.json
 ```bash
 # Start interactive chat session
 ab invoke interactive <agent-id>
+
+# Interactive session with HXQL query
+ab invoke interactive <agent-id> --hxql-query "SELECT * FROM documents WHERE category='financial'"
+
+# Interactive session with hybrid search enabled
+ab invoke interactive <agent-id> --hybrid-search
+
+# Interactive session with guardrails
+ab invoke interactive <agent-id> --guardrails "HAIP-Insults-Low" --guardrails "PII-Detection"
 ```
 
 **Example Session:**

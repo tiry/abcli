@@ -33,6 +33,9 @@ class InvokeRequest(BaseModel):
     enable_deep_search: bool = Field(False, alias="enableDeepSearch")
     guardrails: list[str] | None = None
 
+    class Config:
+        populate_by_name = True
+
 
 class InvokeTaskRequest(BaseModel):
     """Request to invoke a task agent with structured input."""

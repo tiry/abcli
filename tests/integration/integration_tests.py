@@ -799,7 +799,7 @@ class IntegrationTests:
                 "agents", "update",
                 self.test_agent_id,
                 "--agent-config", temp_path,
-                "--version-label", "v1.1",
+                "--version-label", f"v{initial_version+1}",
                 "--notes", "Updated version with modified configuration"
             ]
             exit_code, output = run_command(cmd, verbose=self.verbose)

@@ -87,6 +87,12 @@ def invoke() -> None:
 @click.option("--message", "-m", help="Message to send")
 @click.option("--message-file", type=click.Path(exists=True), help="Read message from file")
 @click.option("--stream", "-s", is_flag=True, help="Enable streaming")
+@click.option("--hxql-query", help="HXQL query for document retrieval")
+@click.option("--hybrid-search", is_flag=True, help="Enable hybrid search")
+@click.option("--deep-search", is_flag=True, help="Enable deep search")
+@click.option(
+    "--guardrails", multiple=True, help="Apply guardrails (can be specified multiple times)"
+)
 @click.option(
     "--format",
     "-f",
@@ -106,6 +112,10 @@ def chat(
     message: str | None,
     message_file: str | None,
     stream: bool,
+    hxql_query: str | None,
+    hybrid_search: bool,
+    deep_search: bool,
+    guardrails: list[str],
     output_format: str,
     verbose: bool,
 ) -> None:
@@ -134,7 +144,11 @@ def chat(
 
     messages = [ChatMessage(role="user", content=message)]
     request = InvokeRequest(
-        messages=messages, hxqlQuery=None, hybridSearch=None, enableDeepSearch=False
+        messages=messages,
+        hxqlQuery=hxql_query,
+        hybridSearch=hybrid_search,
+        enableDeepSearch=deep_search,
+        guardrails=list(guardrails) if guardrails else None,
     )
 
     try:
@@ -251,8 +265,22 @@ def task(
 @invoke.command("interactive")
 @click.argument("agent_id")
 @click.argument("version_id", required=False, default="latest")
+@click.option("--hxql-query", help="HXQL query for document retrieval")
+@click.option("--hybrid-search", is_flag=True, help="Enable hybrid search")
+@click.option("--deep-search", is_flag=True, help="Enable deep search")
+@click.option(
+    "--guardrails", multiple=True, help="Apply guardrails (can be specified multiple times)"
+)
 @click.pass_context
-def interactive(ctx: click.Context, agent_id: str, version_id: str) -> None:
+def interactive(
+    ctx: click.Context,
+    agent_id: str,
+    version_id: str,
+    hxql_query: str | None,
+    hybrid_search: bool,
+    deep_search: bool,
+    guardrails: list[str],
+) -> None:
     """Start interactive chat session (REPL)."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
     messages: list[ChatMessage] = []  # Chat history
@@ -293,7 +321,11 @@ def interactive(ctx: click.Context, agent_id: str, version_id: str) -> None:
 
                     # Invoke agent
                     request = InvokeRequest(
-                        messages=messages, hxqlQuery=None, hybridSearch=None, enableDeepSearch=False
+                        messages=messages,
+                        hxqlQuery=hxql_query,
+                        hybridSearch=hybrid_search,
+                        enableDeepSearch=deep_search,
+                        guardrails=list(guardrails) if guardrails else None,
                     )
                     console.print("[bold cyan]Agent[/bold cyan]", end=" ")
 

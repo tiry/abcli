@@ -111,7 +111,7 @@ def display_agents_as_cards(agents: list[dict[str, Any]]) -> None:
 
 def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
     """Display agents in a table format with correct alternating row colors."""
-    
+
     # 1. Improved CSS to handle the row wrapper
     st.markdown(
         """
@@ -132,7 +132,6 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
     }
     .even-bg { background-color: #f8f9fa; }
     .odd-bg { background-color: #ffffff; }
-    
     /* Make buttons look better inside the table */
     .stButton > button {
         padding: 2px 8px !important;
@@ -164,7 +163,7 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
         agent_name = agent.get("name", "Unknown")
         agent_type = agent.get("type", "")
         agent_status = agent.get("status", "")
-        
+
         # Determine background color based on index
         bg_color = "#f8f9fa" if i % 2 == 0 else "#ffffff"
 
@@ -173,9 +172,9 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
             # Inject the background color as a wrapping div using a 'sandwich'
             st.markdown(
                 f'<div style="background-color: {bg_color}; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 4px;">',
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
-            
+
             # Draw the columns
             id_col, name_col, type_col, status_col, actions_col = st.columns([3, 3, 1, 1, 2])
 
@@ -191,7 +190,10 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
             with status_col:
                 # Optional: add color to status
                 color = "green" if agent_status == "CREATED" else "gray"
-                st.markdown(f"<span style='color:{color}; font-weight:bold;'>{agent_status}</span>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<span style='color:{color}; font-weight:bold;'>{agent_status}</span>",
+                    unsafe_allow_html=True,
+                )
 
             with actions_col:
                 btn_col1, btn_col2, btn_col3 = st.columns(3)
@@ -210,10 +212,11 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
                         st.session_state.selected_agent = agent
                         st.session_state.nav_intent = "Chat"
                         st.rerun()
-            
+
             # Close the wrapping div
-            st.markdown('</div>', unsafe_allow_html=True)
-            
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
 def _display_agents_as_table(agents: list[dict[str, Any]]) -> None:
     """Display agents in a table format with inline action buttons using columns.
 
