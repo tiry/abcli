@@ -39,3 +39,8 @@ retry_backoff: 2.0  # Exponential backoff multiplier
 # Output preferences (optional)
 # Options: table, json, yaml
 default_output_format: "table"
+
+# Audit settings (optional)
+# When enabled, API payloads for create/update operations will be saved
+# to the 'audit' folder next to the config file
+record_updates: false

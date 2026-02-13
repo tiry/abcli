@@ -48,6 +48,8 @@ cp config.example.yaml config.yaml
 ab validate --show-config
 ```
 
+For detailed information about all configuration options, see [CONFIG.md](CONFIG.md).
+
 ### Basic Usage
 
 ```bash
@@ -102,6 +104,7 @@ ab-cli/
 ## Documentation
 
 - [USAGE.md](USAGE.md): Detailed command documentation with examples
+- [CONFIG.md](CONFIG.md): Configuration parameters and options
 - [INSTALL.md](INSTALL.md): Installation and setup instructions
 - [TESTING.md](TESTING.md): Instructions for testing the CLI
 

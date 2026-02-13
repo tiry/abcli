@@ -31,6 +31,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "pyyaml>=6.0",
     "rich>=13.0",
+    "streamlit>=1.31.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,10 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
     "types-PyYAML>=6.0",
+]
+
+ui = [
+    "streamlit>=1.31.0",
 ]
 
 [project.scripts]
@@ -52,7 +57,7 @@ Source = "https://github.com/hyland/ab-cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ab_cli*"]
+include = ["ab_cli*", "abui*"]
 
 [tool.ruff]
 line-length = 100

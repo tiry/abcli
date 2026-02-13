@@ -236,7 +236,7 @@ class TestCreateAgent:
     """Tests for create_agent method."""
 
     def test_create_agent_success(self, client: AgentBuilderClient) -> None:
-        """Create agent returns AgentVersion."""
+        """Create agent returns a dictionary."""
         agent_create = AgentCreate(
             name="NewAgent",
             description="A new agent",
@@ -245,27 +245,20 @@ class TestCreateAgent:
         )
 
         mock_response = {
-            "agent": {
-                "id": "12345678-1234-5678-1234-567812345678",
-                "type": "base",
-                "name": "NewAgent",
-                "description": "A new agent",
-                "createdAt": "2024-01-01T00:00:00Z",
-                "createdBy": "user",
-                "modifiedAt": "2024-01-01T00:00:00Z",
-            },
-            "version": {
-                "id": "87654321-4321-8765-4321-876543218765",
-                "number": 1,
-                "createdAt": "2024-01-01T00:00:00Z",
-                "createdBy": "user",
-                "config": {"llm_model_id": "test-model"},
-            },
+            "id": "12345678-1234-5678-1234-567812345678",
+            "type": "base",
+            "name": "NewAgent",
+            "description": "A new agent",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "createdBy": "user",
+            "modifiedAt": "2024-01-01T00:00:00Z",
+            "currentVersionId": "87654321-4321-8765-4321-876543218765",
         }
 
         with patch.object(client, "_request", return_value=mock_response) as mock_req:
             result = client.create_agent(agent_create)
-            assert result.agent.name == "NewAgent"
+            assert result["name"] == "NewAgent"
+            assert result["id"] == "12345678-1234-5678-1234-567812345678"
 
             # Verify POST was called with correct data
             mock_req.assert_called_once()

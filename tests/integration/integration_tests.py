@@ -162,6 +162,7 @@ class IntegrationTests:
             self.test_call_agent_json()
             self.test_patch_agent()
             self.test_update_agent()
+            self.test_update_agent()
 
             # Clean up - delete the test agent
             self.test_delete_agent()
@@ -511,7 +512,7 @@ class IntegrationTests:
             "--name", test_agent_name,
             "--description", "Test calculator agent for integration tests",
             "--type", "tool",  # Using tool type as we're creating a tool agent with functions
-            "--config", config_path,
+            "--agent-config", config_path,
             "--version-label", "v1.0",
             "--notes", "Initial version for testing"
         ]
@@ -559,7 +560,7 @@ class IntegrationTests:
 
         # Get the agent ID if creation was successful
         if create_success:
-            # Try to extract the agent ID directly from the output first
+            # Try to extract the agent ID --ly from the output first
             agent_id_match = re.search(r"ID:\s+([a-zA-Z0-9-]+)", output)
             if agent_id_match:
                 self.test_agent_id = agent_id_match.group(1)
@@ -797,7 +798,7 @@ class IntegrationTests:
             cmd = self.base_cmd + [
                 "agents", "update",
                 self.test_agent_id,
-                "--config", temp_path,
+                "--agent-config", temp_path,
                 "--version-label", "v1.1",
                 "--notes", "Updated version with modified configuration"
             ]

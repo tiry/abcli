@@ -283,12 +283,14 @@ def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -
 # Import all commands
 from ab_cli.cli.invoke import invoke  # noqa: E402
 from ab_cli.cli.resources import resources  # noqa: E402
+from ab_cli.cli.ui import ui  # noqa: E402
 
 # Register all commands
 main.add_command(agents)
 main.add_command(versions)
 main.add_command(invoke)
 main.add_command(resources)
+main.add_command(ui)
 
 
 if __name__ == "__main__":

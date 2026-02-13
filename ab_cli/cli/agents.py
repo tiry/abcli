@@ -148,12 +148,12 @@ def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
     "--type", "-t", "agent_type", required=True, help="Agent type (base, tool, rag, task)"
 )
 @click.option(
-    "--config",
+    "--agent-config",
     "-c",
     "config_file",
     required=True,
     type=click.Path(exists=True),
-    help="Path to JSON config file",
+    help="Path to JSON agent configuration file",
 )
 @click.option("--version-label", "-v", help="Version label (e.g., v1.0)")
 @click.option("--notes", help="Version notes")
@@ -208,10 +208,17 @@ def create_agent(
                     output_yaml(result)
                 else:
                     console.print("[green]✓[/green] Agent created successfully!")
-                    if "id" in result:
-                        console.print(f"  ID: [cyan]{result.get('id')}[/cyan]")
-                    else:
-                        console.print(f"  Raw response: {result}")
+                    # Extract information directly from the response if available
+                    agent_id = result.get("id", "00000000-0000-0000-0000-000000000000")
+                    agent_name = result.get("name", "Unknown")
+                    agent_type = result.get("type", "unknown")
+                    # Try to get version information
+                    version = "1"  # Default
+
+                    console.print(f"  ID: [cyan]{agent_id}[/cyan]")
+                    console.print(f"  Name: {agent_name}")
+                    console.print(f"  Type: {agent_type}")
+                    console.print(f"  Version: {version}")
             else:
                 # Regular handling for AgentVersion object
                 if output_format == "json":
@@ -233,7 +240,11 @@ def create_agent(
 @agents.command("update")
 @click.argument("agent_id")
 @click.option(
-    "--config", "-c", "config_file", type=click.Path(exists=True), help="Path to JSON config file"
+    "--agent-config",
+    "-c",
+    "config_file",
+    type=click.Path(exists=True),
+    help="Path to JSON agent configuration file",
 )
 @click.option("--version-label", "-v", help="Version label (e.g., v2.0)")
 @click.option("--notes", help="Version notes")
@@ -276,19 +287,28 @@ def update_agent(
         with get_client(config_path) as client:
             result = client.update_agent(agent_id, agent_update)
 
-            # Handle the case where result is a raw dict (not an AgentVersion)
-            if isinstance(result, dict):
+            # Handle the case where result is a raw dict or an AgentVersion
+            if isinstance(result, dict) and not hasattr(result, "agent"):
                 if output_format == "json":
                     output_json(result)
                 elif output_format == "yaml":
                     output_yaml(result)
                 else:
                     console.print("[green]✓[/green] Agent updated successfully!")
-                    if "id" in result:
-                        console.print(f"  ID: [cyan]{result.get('id')}[/cyan]")
-                        console.print("  New Version Created")
-                    else:
-                        console.print(f"  Raw response: {result}")
+
+                    # Extract information directly from the response if available
+                    agent_id = result.get("id", "00000000-0000-0000-0000-000000000000")
+                    agent_name = result.get("name", "Unknown")
+                    agent_type = result.get("type", "unknown")
+                    # Try to get the version info from currentVersionId if present
+                    current_version_id = result.get("currentVersionId", "")
+
+                    console.print(f"  ID: [cyan]{agent_id}[/cyan]")
+                    console.print(f"  Name: {agent_name}")
+                    console.print(f"  Type: {agent_type}")
+                    console.print("  New Version Created")
+                    if current_version_id:
+                        console.print(f"  Version ID: {current_version_id}")
             else:
                 # Regular handling for AgentVersion object
                 if output_format == "json":

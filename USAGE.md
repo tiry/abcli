@@ -247,7 +247,7 @@ ab agents create \
   --name "Calculator" \
   --description "Math assistant" \
   --type tool \
-  --config agent-config.json \
+  --agent-config agent-config.json \
   --version-label "v1.0" \
   --notes "Initial version"
 ```
@@ -308,7 +308,7 @@ ab agents create \
 ```bash
 # Update an agent (creates a new version)
 ab agents update <agent-id> \
-  --config updated-config.json \
+  --agent-config updated-config.json \
   --version-label "v2.0" \
   --notes "Improved version"
 ```

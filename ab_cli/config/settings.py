@@ -120,6 +120,15 @@ class ABSettings(BaseSettings):
         ),
     ]
 
+    # Audit settings
+    record_updates: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Whether to save API payloads for create/update operations",
+        ),
+    ]
+
     @field_validator("api_endpoint", "auth_endpoint")
     @classmethod
     def validate_url(cls, v: str) -> str:
@@ -199,6 +208,7 @@ def get_config_summary(settings: ABSettings) -> dict[str, str]:
         "timeout": f"{settings.timeout}s",
         "max_retries": str(settings.max_retries),
         "default_output_format": settings.default_output_format,
+        "record_updates": str(settings.record_updates),
     }
 
 

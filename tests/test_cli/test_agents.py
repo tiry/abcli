@@ -229,7 +229,7 @@ class TestCreateAgent:
                 "--name", "New Agent",
                 "--description", "New agent",
                 "--type", "tool",
-                "--config", str(config_file),
+                "--agent-config", str(config_file),
                 "--version-label", "v1.0",
                 "--notes", "Initial version"
             ], obj=ctx_obj)
@@ -265,7 +265,7 @@ class TestCreateAgent:
                 "--name", "New Agent",
                 "--description", "New agent",
                 "--type", "tool",
-                "--config", str(config_file)
+                "--agent-config", str(config_file)
             ], obj=ctx_obj)
 
         assert result.exit_code != 0
@@ -288,7 +288,7 @@ class TestUpdateAgent:
             result = runner.invoke(agents, [
                 "update",
                 "00000000-0000-4000-a000-000000000001",
-                "--config", str(config_file),
+                "--agent-config", str(config_file),
                 "--version-label", "v2.0",
                 "--notes", "Updated version"
             ], obj=ctx_obj)
@@ -329,7 +329,7 @@ class TestUpdateAgent:
             result = runner.invoke(agents, [
                 "update",
                 "00000000-0000-4000-a000-000000000001",
-                "--config", str(config_file)
+                "--agent-config", str(config_file)
             ], obj=ctx_obj)
 
         assert result.exit_code == 0

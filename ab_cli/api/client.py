@@ -42,6 +42,7 @@ from ab_cli.models.resources import (
     GuardrailList,
     LLMModelList,
 )
+from ab_cli.utils.audit import save_payload
 
 
 class AgentBuilderClient:
@@ -255,14 +256,15 @@ class AgentBuilderClient:
         data = self._request("GET", f"/agents/{agent_id}/versions/{version}")
         return AgentVersion.model_validate(data)
 
-    def create_agent(self, agent: AgentCreate) -> AgentVersion:
+    def create_agent(self, agent: AgentCreate) -> dict[str, Any]:
         """Create a new agent.
 
         Args:
             agent: Agent creation data.
 
         Returns:
-            Created agent with version.
+            Dictionary containing the agent creation response
+            (typically contains id, name, type, and other fields)
         """
         # Generate the JSON payload
         json_payload = agent.model_dump(by_alias=True, exclude_none=True)
@@ -272,6 +274,15 @@ class AgentBuilderClient:
         print("=" * 80)
         print(json.dumps(json_payload, indent=2, default=str))
         print("=" * 80)
+
+        # Save the payload for audit if record_updates is enabled
+        if self.settings.record_updates:
+            config_path = None
+            if hasattr(self.settings, "config_path") and self.settings.config_path:
+                config_path = self.settings.config_path
+
+            audit_file = save_payload("create_agent", json_payload, config_path)
+            print(f"[INFO] Saved create_agent payload to {audit_file}")
 
         # Log the raw agent model fields for debugging
         print("\n[DEBUG] Raw AgentCreate fields:")
@@ -298,68 +309,11 @@ class AgentBuilderClient:
         print(json.dumps(data, indent=2, default=str))
         print("=" * 80)
 
-        # Try to handle different response formats
-        try:
-            # Check if the response directly contains agent/version fields
-            if "agent" in data and "version" in data:
-                return AgentVersion.model_validate(data)
-            else:
-                # The API might just return an ID or other format - display it but don't try to parse
-                print("\n[DEBUG] API returned unexpected format (no agent/version fields)")
-                print("Will not attempt to parse as AgentVersion to avoid errors")
-                # Cast to satisfy type checking - in production this would need proper handling
-                from datetime import datetime
-
-                current_time = datetime.now().isoformat()
-
-                return AgentVersion.model_validate(
-                    {
-                        "agent": {
-                            "id": "00000000-0000-0000-0000-000000000000",
-                            "name": "Unknown",
-                            "type": "unknown",
-                            "description": "Unknown",
-                            "created_at": current_time,
-                            "created_by": "system",
-                            "modified_at": current_time,
-                        },
-                        "version": {
-                            "id": "00000000-0000-0000-0000-000000000000",
-                            "number": 1,
-                            "created_at": current_time,
-                            "created_by": "system",
-                            "config": {},
-                        },
-                    }
-                )
-        except Exception as e:
-            # Don't let validation errors fail the request if we got a successful response
-            print(f"\n[DEBUG] Error parsing response as AgentVersion: {str(e)}")
-            # Cast to satisfy type checking - in production this would need proper handling
-            from datetime import datetime
-
-            current_time = datetime.now().isoformat()
-
-            return AgentVersion.model_validate(
-                {
-                    "agent": {
-                        "id": "00000000-0000-0000-0000-000000000000",
-                        "name": "Unknown",
-                        "type": "unknown",
-                        "description": "Unknown",
-                        "created_at": current_time,
-                        "created_by": "system",
-                        "modified_at": current_time,
-                    },
-                    "version": {
-                        "id": "00000000-0000-0000-0000-000000000000",
-                        "number": 1,
-                        "created_at": current_time,
-                        "created_by": "system",
-                        "config": {},
-                    },
-                }
-            )
+        # According to the API documentation, the create agent endpoint returns
+        # a dictionary with agent metadata, not the full AgentVersion
+        # So we simply return the data dictionary as is
+        print("\n[DEBUG] Returning raw API response from create_agent")
+        return data
 
     def update_agent(self, agent_id: str | UUID, update: AgentUpdate) -> AgentVersion:
         """Update an agent (creates a new version).
@@ -379,6 +333,15 @@ class AgentBuilderClient:
         print(json.dumps(json_payload, indent=2, default=str))
         print("=" * 80)
 
+        # Save the payload for audit if record_updates is enabled
+        if self.settings.record_updates:
+            config_path = None
+            if hasattr(self.settings, "config_path") and self.settings.config_path:
+                config_path = self.settings.config_path
+
+            audit_file = save_payload("update_agent", json_payload, config_path)
+            print(f"[INFO] Saved update_agent payload to {audit_file}")
+
         # The correct endpoint is /agents/{agent_id}/versions (not /agents/{agent_id})
         data = self._request(
             "POST",
@@ -392,34 +355,51 @@ class AgentBuilderClient:
         print(json.dumps(data, indent=2, default=str))
         print("=" * 80)
 
-        # Handle different response formats
+        # According to the API documentation, the update agent endpoint (POST to /agents/{agent_id}/versions)
+        # returns a dictionary with both agent and version fields, which can be parsed as an AgentVersion
+        print("\n[DEBUG] Parsing response as AgentVersion")
         try:
+            return AgentVersion.model_validate(data)
+        except Exception as e:
+            print(f"\n[DEBUG] Error parsing response as AgentVersion: {str(e)}")
+            # If there's an error parsing the response, we should still try to extract useful information
+            print("\n[DEBUG] Falling back to extracting fields directly from the response")
+
+            # Check if we have agent and version fields
             if "agent" in data and "version" in data:
                 return AgentVersion.model_validate(data)
             else:
-                print(
-                    "\n[DEBUG] API returned unexpected format for agent update (no agent/version fields)"
-                )
-                print("Will try to build an AgentVersion from the available data")
-
-                # Create a proper AgentVersion object for type checking
+                # Create a minimal valid AgentVersion using whatever data is available
                 from datetime import datetime
 
                 current_time = datetime.now().isoformat()
 
+                # Try to extract agent information
+                agent_id = data.get("id", "00000000-0000-0000-0000-000000000000")
+                agent_name = data.get("name", "Unknown")
+                agent_type = data.get("type", "unknown")
+                agent_description = data.get("description", "")
+
+                # Try to extract version information
+                version_id = data.get("currentVersionId", "00000000-0000-0000-0000-000000000000")
+
                 return AgentVersion.model_validate(
                     {
                         "agent": {
-                            "id": "00000000-0000-0000-0000-000000000000",
-                            "name": "Unknown",
-                            "type": "unknown",
-                            "description": "Unknown",
+                            "id": agent_id,
+                            "name": agent_name,
+                            "type": agent_type,
+                            "description": agent_description,
+                            "status": "CREATED",
+                            "isGlobalAgent": False,
+                            "currentVersionId": version_id,
                             "created_at": current_time,
                             "created_by": "system",
                             "modified_at": current_time,
+                            "modified_by": "system",
                         },
                         "version": {
-                            "id": "00000000-0000-0000-0000-000000000000",
+                            "id": version_id,
                             "number": 1,
                             "created_at": current_time,
                             "created_by": "system",
@@ -427,33 +407,6 @@ class AgentBuilderClient:
                         },
                     }
                 )
-        except Exception as e:
-            print(f"\n[DEBUG] Error parsing update response as AgentVersion: {str(e)}")
-            # Create a minimal valid AgentVersion to satisfy type checking
-            from datetime import datetime
-
-            current_time = datetime.now().isoformat()
-
-            return AgentVersion.model_validate(
-                {
-                    "agent": {
-                        "id": "00000000-0000-0000-0000-000000000000",
-                        "name": "Unknown",
-                        "type": "unknown",
-                        "description": "Unknown",
-                        "created_at": current_time,
-                        "created_by": "system",
-                        "modified_at": current_time,
-                    },
-                    "version": {
-                        "id": "00000000-0000-0000-0000-000000000000",
-                        "number": 1,
-                        "created_at": current_time,
-                        "created_by": "system",
-                        "config": {},
-                    },
-                }
-            )
 
     def patch_agent(self, agent_id: str | UUID, patch: AgentPatch) -> Agent:
         """Patch an agent's name/description without creating a new version.
