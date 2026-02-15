@@ -1,0 +1,55 @@
+{
+  "guardrails": [
+    {
+      "id": "test-guardrail-1",
+      "name": "test-guardrail-1",
+      "description": "A test guardrail for UI testing",
+      "category": "moderation",
+      "version": "1.0.0",
+      "parameters": {
+        "severity": "high"
+      }
+    },
+    {
+      "id": "test-guardrail-2",
+      "name": "test-guardrail-2",
+      "description": "Another test guardrail for UI testing",
+      "category": "pii",
+      "version": "1.0.0",
+      "parameters": {
+        "redact": true
+      }
+    },
+    {
+      "id": "test-guardrail-3",
+      "name": "test-guardrail-3",
+      "description": "A test guardrail that isn't used in any agents",
+      "category": "content-filter",
+      "version": "1.0.0",
+      "parameters": {
+        "filterLevel": "medium"
+      }
+    },
+    {
+      "id": "test-guardrail-custom",
+      "name": "test-guardrail-custom",
+      "description": "A custom test guardrail with complex parameters",
+      "category": "custom",
+      "version": "1.0.0",
+      "parameters": {
+        "rules": [
+          {
+            "name": "test-rule-1",
+            "description": "Test rule 1",
+            "enabled": true
+          },
+          {
+            "name": "test-rule-2",
+            "description": "Test rule 2",
+            "enabled": false
+          }
+        ]
+      }
+    }
+  ]
+}

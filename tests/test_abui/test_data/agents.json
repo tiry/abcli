@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "id": "test-agent-1",
+      "name": "Test Chat Agent",
+      "description": "A test chat agent for UI testing",
+      "type": "chat",
+      "status": "CREATED",
+      "created_at": "2026-01-01T00:00:00Z",
+      "agent_config": {
+        "llmModelId": "test-model-1",
+        "systemPrompt": "You are a test chat assistant.",
+        "guardrails": ["test-guardrail-1", "test-guardrail-2"],
+        "inferenceConfig": {
+          "temperature": 0.5,
+          "maxRetries": 2,
+          "timeout": 1800,
+          "maxTokens": 2000
+        },
+        "tools": []
+      }
+    },
+    {
+      "id": "test-agent-2",
+      "name": "Test Task Agent",
+      "description": "A test task agent for UI testing",
+      "type": "task",
+      "status": "CREATED",
+      "created_at": "2026-01-01T00:00:00Z",
+      "agent_config": {
+        "llmModelId": "test-model-2",
+        "systemPrompt": "You are a test task assistant.",
+        "guardrails": ["test-guardrail-1"],
+        "inferenceConfig": {
+          "temperature": 0.2,
+          "maxRetries": 1,
+          "timeout": 1800,
+          "maxTokens": 4000
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "task": {
+              "type": "string",
+              "description": "Task description"
+            }
+          },
+          "required": ["task"]
+        },
+        "tools": []
+      }
+    },
+    {
+      "id": "test-agent-3",
+      "name": "Test RAG Agent",
+      "description": "A test RAG agent for UI testing",
+      "type": "rag",
+      "status": "CREATED",
+      "created_at": "2026-01-01T00:00:00Z",
+      "agent_config": {
+        "llmModelId": "test-model-3",
+        "systemPrompt": "You are a test RAG assistant.",
+        "guardrails": [],
+        "inferenceConfig": {
+          "temperature": 0.3,
+          "maxRetries": 2,
+          "timeout": 1800,
+          "maxTokens": 3000
+        },
+        "tools": [
+          {
+            "type": "retrieval",
+            "name": "test_retrieval",
+            "description": "Test retrieval tool"
+          }
+        ]
+      }
+    }
+  ]
+}

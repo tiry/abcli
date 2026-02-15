@@ -33,8 +33,10 @@ class InvokeRequest(BaseModel):
     enable_deep_search: bool = Field(False, alias="enableDeepSearch")
     guardrails: list[str] | None = None
 
-    class Config:
-        populate_by_name = True
+    # Updated to use model_config instead of class Config (Pydantic v2 style)
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class InvokeTaskRequest(BaseModel):

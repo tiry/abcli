@@ -125,6 +125,112 @@ The UI has been improved with the following key changes:
    - Eliminated code duplication across views
    - Better testability through clean separation of concerns
 
+## UI Testing Framework
+
+The UI comes with a comprehensive testing framework that allows automated testing of Streamlit components and functionality without requiring a browser.
+
+### Testing Architecture
+
+1. **Test Data Provider**:
+   - Custom `TestDataProvider` class extends `MockDataProvider` for predictable test data
+   - Dedicated test data files in `tests/test_abui/test_data/`
+   - Support for tracking method calls and simulating errors
+
+2. **Streamlit AppTest**:
+   - Leverages Streamlit's built-in `AppTest` for headless testing
+   - Simulates UI rendering and user interactions
+   - Inspects rendered components and session state
+
+3. **Helper Functions**:
+   - Simplified assertions for common UI testing patterns
+   - Navigation helpers to simulate user actions
+   - Element inspection utilities
+
+### Key Testing Features
+
+- **Isolation**: Each test runs with a fresh Streamlit instance
+- **Predictable Data**: Test data is separate from development mock data
+- **Testable Components**: UI components are designed for testability
+- **Session State Access**: Direct access to session state for verification
+- **Error Simulation**: Ability to test error handling paths
+
+### How to Run UI Tests
+
+Run all UI tests:
+```bash
+python -m pytest tests/test_abui/
+```
+
+Run specific test file:
+```bash
+python -m pytest tests/test_abui/test_agents_list.py
+```
+
+Run individual test:
+```bash
+python -m pytest tests/test_abui/test_agents_list.py::test_agents_list_displays_all_agents
+```
+
+### Writing UI Tests
+
+Example of a UI test:
+
+```python
+def test_agents_list_displays_all_agents(streamlit_app: AppTest, test_data_provider: TestDataProvider) -> None:
+    """Test that the agents list displays all agents from the data provider."""
+    # Run the app - this should be in the default Agents page
+    streamlit_app.run()
+    
+    # Get the agents from the test data provider
+    agents = test_data_provider.get_agents()
+    
+    # Check that get_agents was called
+    assert test_data_provider.get_call_count("get_agents") >= 1
+    
+    # Verify that each agent is displayed in the page content
+    for agent in agents:
+        # Check for agent name in subheaders
+        agent_found = False
+        for subheader_element in streamlit_app.subheader:
+            if hasattr(subheader_element, 'value') and agent["name"] == subheader_element.value:
+                agent_found = True
+                break
+        assert agent_found, f"Agent '{agent['name']}' not found in UI"
+```
+
+### Test Fixtures
+
+The test framework provides several fixtures:
+
+- **test_data_provider**: An instance of `TestDataProvider` with test data
+- **mock_config**: A mock configuration dictionary for testing
+- **streamlit_app**: A configured Streamlit AppTest instance ready to run
+
+These fixtures are defined in `tests/test_abui/conftest.py` and are automatically available in all UI tests.
+
+### Debug Utilities
+
+The testing framework includes developer utilities for debugging Streamlit components:
+
+- **debug_app.py**: Provides utilities to inspect the Streamlit app structure
+  - Shows available attributes and tree structure
+  - Displays all text, markdown, and other content elements
+  - Exposes session state keys and values
+
+- **debug_elements.py**: Offers detailed inspection of specific UI elements
+  - Examines element properties like type, value, and children
+  - Shows the structure of markdown and subheader elements
+  - Displays current test data from the provider
+
+These files have debugging functions prefixed with `debug_` to exclude them from normal test runs. They're kept as developer tools for future UI work and can be manually run with:
+
+```bash
+python -m pytest tests/test_abui/test_debug_app.py::debug_app_content -v
+python -m pytest tests/test_abui/test_debug_elements.py::debug_element_contents -v
+```
+
+Note that these are primarily debugging tools and not functional tests.
+
 ## Troubleshooting
 
 ### Configuration Issues

@@ -1,0 +1,44 @@
+{
+  "models": [
+    {
+      "id": "test-model-1",
+      "name": "Test Model 1",
+      "provider": "test-provider",
+      "description": "A test model for UI testing",
+      "maxTokens": 4096,
+      "supportedAgentTypes": ["chat", "task", "rag", "qa"],
+      "deprecationStatus": null
+    },
+    {
+      "id": "test-model-2",
+      "name": "Test Model 2",
+      "provider": "test-provider",
+      "description": "Another test model for UI testing",
+      "maxTokens": 8192,
+      "supportedAgentTypes": ["chat", "task"],
+      "deprecationStatus": null
+    },
+    {
+      "id": "test-model-3",
+      "name": "Test Model 3",
+      "provider": "test-provider",
+      "description": "A specialized test model for RAG",
+      "maxTokens": 16384,
+      "supportedAgentTypes": ["rag", "qa"],
+      "deprecationStatus": null
+    },
+    {
+      "id": "test-model-deprecated",
+      "name": "Test Deprecated Model",
+      "provider": "test-provider",
+      "description": "A deprecated test model",
+      "maxTokens": 2048,
+      "supportedAgentTypes": ["chat"],
+      "deprecationStatus": {
+        "isDeprecated": true,
+        "message": "This model is deprecated for testing purposes",
+        "recommendedAlternative": "test-model-1"
+      }
+    }
+  ]
+}

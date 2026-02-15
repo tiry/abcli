@@ -3,7 +3,7 @@
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast
 
 from ab_cli.abui.providers.data_provider import DataProvider
@@ -122,7 +122,7 @@ class MockDataProvider(DataProvider):
             "description": agent_data.get("description", ""),
             "type": agent_data.get("type"),
             "status": "CREATED",
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
         # Add agent_config if provided
@@ -178,7 +178,7 @@ class MockDataProvider(DataProvider):
             updated_agent["agent_config"] = agent_data["agent_config"]
 
         # Add modified timestamp
-        updated_agent["modified_at"] = datetime.utcnow().isoformat() + "Z"
+        updated_agent["modified_at"] = datetime.now(timezone.utc).isoformat() + "Z"
 
         # Update in the list
         agents[agent_idx] = updated_agent
