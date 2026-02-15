@@ -41,6 +41,10 @@ def agents() -> None:
 @agents.command("list")
 @click.option("--limit", "-l", default=50, help="Maximum number of agents to return")
 @click.option("--offset", "-o", default=0, help="Offset for pagination")
+@click.option("--type", "-t", "agent_type", help="Filter by agent type (tool, rag, task)")
+@click.option(
+    "--name", "-n", "name_pattern", help="Filter by name (supports substring and wildcards)"
+)
 @click.option(
     "--format",
     "-f",
@@ -50,7 +54,14 @@ def agents() -> None:
     help="Output format",
 )
 @click.pass_context
-def list_agents(ctx: click.Context, limit: int, offset: int, output_format: str) -> None:
+def list_agents(
+    ctx: click.Context,
+    limit: int,
+    offset: int,
+    agent_type: str | None,
+    name_pattern: str | None,
+    output_format: str,
+) -> None:
     """List all agents in the environment."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
@@ -58,20 +69,68 @@ def list_agents(ctx: click.Context, limit: int, offset: int, output_format: str)
         with get_client(config_path) as client:
             result = client.list_agents(limit=limit, offset=offset)
 
+            # Apply client-side filters if specified
+            filtered_agents = result.agents
+
+            # Filter by agent type if specified
+            if agent_type:
+                filtered_agents = [a for a in filtered_agents if a.type == agent_type]
+
+            # Filter by name pattern if specified
+            if name_pattern:
+                # Convert wildcard pattern to regex pattern (e.g., "*calc*" -> ".*calc.*")
+                if name_pattern.startswith("*") or name_pattern.endswith("*"):
+                    pattern = name_pattern.replace("*", ".*")
+                    import re
+
+                    try:
+                        regex = re.compile(pattern, re.IGNORECASE)
+                        filtered_agents = [a for a in filtered_agents if regex.search(a.name)]
+                    except re.error:
+                        # Fall back to substring match if regex conversion fails
+                        name_lower = name_pattern.replace("*", "").lower()
+                        filtered_agents = [
+                            a for a in filtered_agents if name_lower in a.name.lower()
+                        ]
+                else:
+                    # Simple substring match (case-insensitive)
+                    name_lower = name_pattern.lower()
+                    filtered_agents = [a for a in filtered_agents if name_lower in a.name.lower()]
+
+            # Update count for display
+            filtered_count = len(filtered_agents)
+            total_count = result.pagination.total_items
+
+            # Create display title based on whether filtering was applied
+            if agent_type or name_pattern:
+                title = f"Agents ({filtered_count} of {total_count} total)"
+            else:
+                title = f"Agents ({total_count} total)"
+
             if output_format == "json":
-                output_json(result.model_dump(by_alias=True))
+                # Replace agents in result with filtered list before output
+                result_dict = result.model_dump(by_alias=True)
+                result_dict["agents"] = [
+                    agent.model_dump(by_alias=True) for agent in filtered_agents
+                ]
+                output_json(result_dict)
             elif output_format == "yaml":
-                output_yaml(result.model_dump(by_alias=True))
+                # Replace agents in result with filtered list before output
+                result_dict = result.model_dump(by_alias=True)
+                result_dict["agents"] = [
+                    agent.model_dump(by_alias=True) for agent in filtered_agents
+                ]
+                output_yaml(result_dict)
             else:
                 # Table format
-                table = Table(title=f"Agents ({result.pagination.total_items} total)")
+                table = Table(title=title)
                 table.add_column("ID", style="cyan", no_wrap=True)
                 table.add_column("Name", style="green")
                 table.add_column("Type", style="magenta")
                 table.add_column("Status")
                 table.add_column("Created At")
 
-                for agent in result.agents:
+                for agent in filtered_agents:
                     table.add_row(
                         str(agent.id),
                         agent.name,

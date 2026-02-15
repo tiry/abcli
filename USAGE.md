@@ -135,6 +135,18 @@ ab agents list
 # Paginate results
 ab agents list --limit 10 --offset 20
 
+# Filter by agent type
+ab agents list --type rag
+
+# Filter by name (case-insensitive substring match)
+ab agents list --name "calculator"  # Will match "Simple Calculator", "Calculator Pro", etc.
+
+# Filter by name with wildcard pattern
+ab agents list --name "*calc*"  # Will match any name containing "calc"
+
+# Combine filters
+ab agents list --type tool --name "calculator"
+
 # Get output in JSON format
 ab agents list --format json
 ```
@@ -407,7 +419,10 @@ Agent: Calculator (ID: 8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b)
 ### Get Version
 
 ```bash
-# Get a specific version
+# Get latest version (default)
+ab versions get <agent-id>
+
+# Get a specific version by ID
 ab versions get <agent-id> <version-id>
 
 # Get in JSON format

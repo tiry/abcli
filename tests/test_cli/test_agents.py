@@ -124,6 +124,68 @@ class TestListAgents:
         assert "Another" in result.output
         assert "tool" in result.output
         assert "rag" in result.output
+        
+    def test_list_agents_filter_by_type(self, runner, mock_client):
+        """Test filtering agents by type."""
+        ctx_obj = {"config_path": None}
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(agents, ["list", "--type", "tool"], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        mock_client.list_agents.assert_called_once_with(limit=50, offset=0)
+        
+        # Should contain the tool agent but not the rag agent
+        assert "Test" in result.output
+        assert "tool" in result.output
+        assert "Another" not in result.output
+        assert "Agents (1 of 2 total)" in result.output
+        
+    def test_list_agents_filter_by_name(self, runner, mock_client):
+        """Test filtering agents by name substring."""
+        ctx_obj = {"config_path": None}
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(agents, ["list", "--name", "Test"], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        mock_client.list_agents.assert_called_once_with(limit=50, offset=0)
+        
+        # Should contain the Test agent but not Another agent
+        assert "Test" in result.output
+        assert "Another" not in result.output
+        assert "Agents (1 of 2 total)" in result.output
+        
+    def test_list_agents_filter_by_name_wildcard(self, runner, mock_client):
+        """Test filtering agents by name with wildcard pattern."""
+        ctx_obj = {"config_path": None}
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(agents, ["list", "--name", "*Agent*"], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        mock_client.list_agents.assert_called_once_with(limit=50, offset=0)
+        
+        # Both agents should be included since both have "Agent" in the name
+        assert "Test" in result.output
+        assert "Another" in result.output
+        assert "Agents (2 of 2 total)" in result.output
+        
+    def test_list_agents_combined_filters(self, runner, mock_client):
+        """Test combining type and name filters."""
+        ctx_obj = {"config_path": None}
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(agents, ["list", "--type", "tool", "--name", "Test"], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        mock_client.list_agents.assert_called_once_with(limit=50, offset=0)
+        
+        # Only the Test Agent (which is a tool) should be included
+        assert "Test" in result.output
+        assert "Another" not in result.output
+        assert "tool" in result.output
+        assert "Agents (1 of 2 total)" in result.output
 
     def test_list_agents_with_pagination(self, runner, mock_client):
         """Test listing agents with pagination."""

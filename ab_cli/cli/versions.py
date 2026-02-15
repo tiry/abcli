@@ -102,7 +102,7 @@ def list_versions(
 
 @versions.command("get")
 @click.argument("agent_id")
-@click.argument("version_id")
+@click.argument("version_id", required=False)
 @click.option(
     "--format",
     "-f",
@@ -112,9 +112,18 @@ def list_versions(
     help="Output format",
 )
 @click.pass_context
-def get_version(ctx: click.Context, agent_id: str, version_id: str, output_format: str) -> None:
-    """Get details of a specific version."""
+def get_version(
+    ctx: click.Context, agent_id: str, version_id: str | None, output_format: str
+) -> None:
+    """Get details of a specific version (defaults to 'latest')."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
+
+    # Use "latest" as default when version_id is not provided
+    if version_id is None:
+        version_id = "latest"
+        console.print(
+            "[yellow]Note:[/yellow] Using 'latest' version since no version ID was specified."
+        )
 
     try:
         with get_client(config_path) as client:

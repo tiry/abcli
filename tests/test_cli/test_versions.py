@@ -214,6 +214,23 @@ class TestGetVersion:
         assert "v1.0" in result.output
         assert "Initial version" in result.output
         assert "systemPrompt" in result.output
+        
+    def test_get_version_default_latest(self, runner, mock_client):
+        """Test version retrieval with default 'latest' when version_id is not provided."""
+        ctx_obj = {"config_path": None}
+
+        with patch("ab_cli.cli.versions.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(versions, ["get", "00000000-0000-4000-a000-000000000001"], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        # Should default to "latest"
+        mock_client.get_version.assert_called_once_with("00000000-0000-4000-a000-000000000001", "latest")
+
+        # Check output contains notification about using latest
+        assert "Using 'latest' version" in result.output
+        # Check output contains version information
+        assert "Test Agent" in result.output
+        assert "v1.0" in result.output
 
     def test_get_version_json_format(self, runner, mock_client):
         """Test getting version with JSON output format."""
