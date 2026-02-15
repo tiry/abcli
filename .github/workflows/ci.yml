@@ -146,22 +146,60 @@ jobs:
         run: |
           python -m pip install --upgrade pip build
           if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+          
+      - name: Show environment and working directory
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Python version: $(python --version)"
+          echo "Build tool version: $(python -m build --version)"
+          echo "Content of current directory:"
+          ls -la
+          
       - name: Build package
         run: |
           python -m build
-          ls -la dist/  # List contents of dist directory for debugging
+          echo "Content of dist directory after build:"
+          ls -la dist/
+          find dist -type f -exec ls -la {} \;
+          
+      - name: Upload entire dist directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-all
+          path: dist/
+          if-no-files-found: error
+          
       - name: Upload Python package (wheel)
         uses: actions/upload-artifact@v4
         with:
           name: python-package-wheel
           path: dist/*.whl
           if-no-files-found: error
+          
       - name: Upload Python package (sdist)
         uses: actions/upload-artifact@v4
         with:
           name: python-package-sdist
           path: dist/*.tar.gz
           if-no-files-found: error
+          
+      # As a final safety check, verify the package artifacts
+      - name: Verify artifacts
+        run: |
+          echo "Verifying wheel package:"
+          WHEEL_COUNT=$(find dist -name "*.whl" | wc -l)
+          echo "Found $WHEEL_COUNT wheel files"
+          
+          echo "Verifying source package:"
+          SDIST_COUNT=$(find dist -name "*.tar.gz" | wc -l)
+          echo "Found $SDIST_COUNT source distribution files"
+          
+          if [ "$WHEEL_COUNT" -eq 0 ] || [ "$SDIST_COUNT" -eq 0 ]; then
+            echo "ERROR: Missing package artifacts!"
+            exit 1
+          else
+            echo "All package artifacts found."
+          fi
 
   update-badges:
     name: Update Badges
