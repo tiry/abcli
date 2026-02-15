@@ -149,11 +149,19 @@ jobs:
       - name: Build package
         run: |
           python -m build
-      - name: Upload package artifact
+          ls -la dist/  # List contents of dist directory for debugging
+      - name: Upload Python package (wheel)
         uses: actions/upload-artifact@v4
         with:
-          name: python-package
-          path: dist/
+          name: python-package-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+      - name: Upload Python package (sdist)
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
 
   update-badges:
     name: Update Badges
