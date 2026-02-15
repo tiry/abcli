@@ -37,6 +37,12 @@ pytest tests/test_api/
 
 # Run tests matching a pattern
 pytest -k "test_agent"
+
+# Run only CLI component tests
+pytest tests/test_api/ tests/test_cli/ tests/test_config/ tests/test_models/
+
+# Run only UI component tests
+pytest tests/test_abui/
 ```
 
 ### Running Tests with Verbose Output
@@ -58,8 +64,11 @@ pytest -vv
 To check test coverage:
 
 ```bash
-# Run tests with coverage
+# Run tests with coverage (CLI components only, as configured in pyproject.toml)
 pytest --cov=ab_cli
+
+# Run tests with coverage for UI components only
+pytest --cov=ab_cli.abui --cov-report=term --cov-config=/dev/null tests/test_abui/
 
 # Generate an HTML coverage report
 pytest --cov=ab_cli --cov-report=html
@@ -146,28 +155,52 @@ If integration tests fail, check the following:
 
 ## Test Coverage
 
-The project maintains high test coverage across all components with an overall coverage of **77%**:
+The project maintains separate test coverage metrics for CLI and UI components:
+
+### Coverage Configuration
+
+Coverage settings are defined in the `pyproject.toml` file:
+
+```toml
+[tool.coverage.run]
+source = ["ab_cli"]
+branch = true
+omit = ["ab_cli/abui/*", "tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+```
+
+The default configuration measures coverage for CLI components only. For UI coverage, separate parameters are used in the CI workflow.
 
 ### Coverage Highlights
 
-| Module                 | Coverage | Notes                                       |
-|------------------------|----------|---------------------------------------------|
-| ab_cli/api/auth.py     | 98%      | Full test coverage for token management     |
-| ab_cli/cli/invoke.py   | 90%      | Enhanced coverage for error handling        |
-| ab_cli/config/         | 100%     | Complete coverage of configuration handling |
-| ab_cli/models/         | 100%     | All data models fully tested                |
+| Component       | Coverage | Notes                                    |
+|-----------------|----------|------------------------------------------|
+| CLI Components  | ~56%     | Core API client, models, CLI commands    |
+| UI Components   | ~36%     | Streamlit-based web interface components |
 
 ### Test Statistics
 
-- **224 tests** covering all major components
-- **1,477 lines of code** with **1,125 lines** covered
-- **288 branch points** with **242 branches** covered
+- **280+ tests** covering all major components
+- Separate coverage tracking for CLI and UI components
+- Coverage reports generated as badges for both components
 
 ### Checking Current Coverage
 
 ```bash
-# Generate a basic coverage report
+# Generate a basic coverage report for CLI components
 pytest --cov=ab_cli
+
+# For UI component coverage
+pytest --cov=ab_cli.abui --cov-report=term --cov-config=/dev/null tests/test_abui/
 
 # For more detailed reporting with missing lines
 pytest --cov=ab_cli --cov-report=term-missing
@@ -179,11 +212,12 @@ pytest --cov=ab_cli --cov-report=html
 pytest --cov=ab_cli --cov-report=xml
 ```
 
-### Coverage Badge
+### Coverage Badges
 
-The project includes a coverage badge in the README.md, which is automatically updated by the GitHub Actions workflow. The current coverage is displayed as:
+The project includes two coverage badges in the README.md, which are automatically updated by the GitHub Actions workflow:
 
-![Coverage](https://raw.githubusercontent.com/hyland/ab-cli/badges/.github/coverage.svg)
+- **CLI Coverage**: ![CLI Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/coverage.svg)
+- **UI Coverage**: ![UI Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/coverage_ui.svg)
 
 ## Writing New Tests
 
@@ -191,7 +225,10 @@ When adding new features, please also add corresponding tests:
 
 ### Unit Test Guidelines
 
-1. **Test Location**: Add tests in the `tests/` directory, mirroring the structure of the code
+1. **Test Location**: 
+   - For CLI components: Add tests in `tests/test_api/`, `tests/test_cli/`, etc.
+   - For UI components: Add tests in `tests/test_abui/`
+
 2. **Test Naming**: Name test files with the prefix `test_`, e.g., `test_client.py`
 3. **Test Functions**: Name test functions with the prefix `test_`, e.g., `test_list_models()`
 4. **Fixtures**: Use pytest fixtures for setup and teardown
@@ -234,46 +271,56 @@ When adding a new feature that interacts with the API, consider adding an integr
 
 ## CI/CD Testing
 
-The project includes a complete GitHub Actions workflow for continuous integration located in `.github/workflows/ci.yml`. This workflow runs automatically on all pull requests and pushes to the main branch.
+The project includes a comprehensive GitHub Actions workflow for continuous integration located in `.github/workflows/ci.yml`. This workflow runs automatically on all pull requests and pushes to the master branch.
 
 ### GitHub Actions Workflow
 
-The CI workflow consists of three parallel jobs:
+The CI workflow consists of five parallel jobs:
 
-1. **Test Job**:
-   - Runs the complete test suite with pytest
-   - Generates coverage reports and a coverage badge
-   - Adds a coverage report comment to PRs
-   - Archives the HTML coverage report as an artifact
-
-2. **Lint Job**:
-   - Runs ruff to check code for linting issues
-   - Verifies code formatting
-
-3. **Type Check Job**:
+1. **Lint Job**:
+   - Runs the `lint.sh` script to check code for linting issues and formatting
    - Runs mypy for static type checking
 
-### Running CI Locally
+2. **CLI Test Job**:
+   - Runs tests for core CLI components (excluding UI components)
+   - Measures coverage for `ab_cli` package (excluding `ab_cli/abui`)
+   - Generates a coverage badge for CLI components
+   - Uploads the badge as a workflow artifact
+
+3. **UI Test Job**:
+   - Runs tests specifically for UI components (`tests/test_abui/`)
+   - Measures coverage for the `ab_cli/abui` directory
+   - Generates a coverage badge for UI components
+   - Uploads the badge as a workflow artifact
+
+4. **Build Job**:
+   - Runs only if lint and test jobs pass
+   - Builds the Python package (sdist and wheel)
+   - Uploads the package artifacts for potential deployment
+
+5. **Badge Update Job**:
+   - Runs only on pushes to the master branch
+   - Downloads badge artifacts from CLI and UI test jobs
+   - Commits and pushes updated badges to the badges branch
+   - Ensures badges are always up-to-date in the README
+
+### Running CI Checks Locally
 
 You can run the same checks locally that the CI runs:
 
 ```bash
-# Run unit tests with coverage
-pytest --cov=ab_cli --cov-report=term-missing --cov-report=xml --cov-report=html
+# Run linting and type checking
+./lint.sh
 
-# Run linting
-ruff check ab_cli/
+# Run CLI tests with coverage
+pytest --cov=ab_cli tests/test_api/ tests/test_cli/ tests/test_config/ tests/test_models/
 
-# Check formatting
-ruff format --check ab_cli/
+# Run UI tests with coverage
+pytest --cov=ab_cli.abui --cov-report=term --cov-config=/dev/null tests/test_abui/
 
-# Run type checking
-mypy ab_cli/ --ignore-missing-imports
+# Build the package
+python -m build
 ```
-
-### Coverage Badge
-
-The CI workflow automatically generates and updates a coverage badge that is displayed in the README.md. The badge is stored on a separate `badges` branch and is updated on each push to the main branch.
 
 ### Integration Tests in CI
 

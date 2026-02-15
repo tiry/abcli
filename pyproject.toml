@@ -41,6 +41,7 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
     "types-PyYAML>=6.0",
+    "build>=1.0.0",
 ]
 
 ui = [
@@ -114,6 +115,7 @@ asyncio_mode = "auto"
 [tool.coverage.run]
 source = ["ab_cli"]
 branch = true
+omit = ["ab_cli/abui/*", "tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -123,3 +125,4 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
 ]
+show_missing = true

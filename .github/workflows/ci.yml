@@ -2,51 +2,199 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
+    paths-ignore:
+      - 'badges/**'
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  lint-and-test:
+  lint:
+    name: Linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+      - name: Run lint.sh script
+        run: ./lint.sh
 
-      - name: Lint with ruff
-        run: |
-          ruff check ab_cli
-          ruff format --check ab_cli
-
-      - name: Type check with mypy
-        run: |
-          mypy ab_cli
-
-      - name: Run tests with pytest
-        run: |
-          python -m pytest --cov=ab_cli tests/test_api/ tests/test_cli/ tests/test_config/ tests/test_models/
-
-      - name: Run UI tests with pytest
-        run: |
-          python -m pytest --cov=ab_cli.abui --cov-append tests/test_abui/
-
-      - name: Generate coverage report
-        run: |
-          python -m pytest --cov=ab_cli --cov-report=xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+  test-cli:
+    name: CLI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          file: ./coverage.xml
-          name: codecov-umbrella
-          fail_ci_if_error: false
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+      - name: Run CLI tests with coverage
+        run: |
+          pytest tests/test_api/ tests/test_cli/ tests/test_config/ tests/test_models/ --cov=ab_cli --cov-report=term --cov-report=xml:coverage_cli.xml
+          
+      # Generate Coverage Report and Badge for CLI
+      - name: Code Coverage Summary for CLI
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage_cli.xml
+          badge: true
+          format: markdown
+          output: both
+          
+      # Create coverage badge for CLI
+      - name: Download CLI coverage badge
+        run: |
+          mkdir -p .github
+          # Extract the coverage percentage from the XML file
+          COVERAGE_PCT=$(grep -oP 'line-rate="\K[^"]+' coverage_cli.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          # Determine the color based on coverage percentage
+          if [ "$COVERAGE_PCT" -lt 50 ]; then
+            COLOR="red"
+          elif [ "$COVERAGE_PCT" -lt 75 ]; then
+            COLOR="yellow"
+          else
+            COLOR="success"
+          fi
+          # Download the badge from shields.io
+          curl -s -o .github/coverage.svg "https://img.shields.io/badge/CLI%20Coverage-${COVERAGE_PCT}%25-${COLOR}?style=flat"
+          
+      - name: Upload CLI coverage badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge-cli
+          path: .github/coverage.svg
+
+  test-ui:
+    name: UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+      - name: Run UI tests with coverage
+        run: |
+          pytest tests/test_abui/ --cov=ab_cli.abui --cov-report=term --cov-config=/dev/null --cov-report=xml:coverage_ui.xml
+          
+      # Generate Coverage Report and Badge for UI
+      - name: Code Coverage Summary for UI
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage_ui.xml
+          badge: true
+          format: markdown
+          output: both
+          
+      # Create coverage badge for UI
+      - name: Download UI coverage badge
+        run: |
+          mkdir -p .github
+          # Extract the coverage percentage from the XML file
+          COVERAGE_PCT=$(grep -oP 'line-rate="\K[^"]+' coverage_ui.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          # Determine the color based on coverage percentage
+          if [ "$COVERAGE_PCT" -lt 50 ]; then
+            COLOR="red"
+          elif [ "$COVERAGE_PCT" -lt 75 ]; then
+            COLOR="yellow"
+          else
+            COLOR="success"
+          fi
+          # Download the badge from shields.io
+          curl -s -o .github/coverage_ui.svg "https://img.shields.io/badge/UI%20Coverage-${COVERAGE_PCT}%25-${COLOR}?style=flat"
+          
+      - name: Upload UI coverage badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge-ui
+          path: .github/coverage_ui.svg
+
+  build:
+    name: Build Package
+    needs: [lint, test-cli, test-ui]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip build
+          if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+      - name: Build package
+        run: |
+          python -m build
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/
+
+  update-badges:
+    name: Update Badges
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [test-cli, test-ui]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download CLI coverage badge
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-badge-cli
+          path: .
+          
+      - name: Download UI coverage badge
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-badge-ui
+          path: .
+          
+      - name: Commit coverage badges to badges branch
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Try to fetch and checkout badges branch, or create it if it doesn't exist
+          if git fetch origin badges:badges 2>/dev/null; then
+            # Branch exists, check it out
+            git checkout badges
+          else
+            # Branch doesn't exist, create orphan branch
+            git checkout --orphan badges
+            # Clean all files from the new branch
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          # Copy badges
+          mkdir -p .github
+          cp ../coverage.svg .
+          cp ../coverage_ui.svg .
+
+          # Commit and push
+          git add coverage.svg coverage_ui.svg
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update coverage badges"
+          git push origin badges

@@ -1,7 +1,8 @@
 # Agent Builder CLI (ab-cli)
 
 [![CI](https://github.com/tiry/abcli/actions/workflows/ci.yml/badge.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
-[![Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/.github/coverage.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
+[![CLI Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/coverage.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
+[![UI Coverage](https://raw.githubusercontent.com/tiry/abcli/badges/coverage_ui.svg)](https://github.com/tiry/abcli/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -120,15 +121,10 @@ ab-cli/
 
 ## Testing and CI
 
-The project has a comprehensive test suite with over 77% code coverage:
+The project has a comprehensive test suite with separate coverage metrics for CLI and UI components:
 
-- **224 passing tests** covering all major components
-- **Near-complete coverage** of critical modules:
-  - Configuration (100%)
-  - Authentication (98%)
-  - Agent models (100%)
-  - Resource models (100%)
-  - Invocation utilities (90%)
+- **CLI components**: Core functionality including API client, models, and CLI commands
+- **UI components**: Streamlit-based web interface for agent management and interaction
 
 ### Running Tests
 
@@ -136,8 +132,14 @@ The project has a comprehensive test suite with over 77% code coverage:
 # Install development dependencies
 pip install -e ".[dev]"
 
-# Run tests
+# Run all tests
 pytest
+
+# Run CLI tests only
+pytest tests/test_api/ tests/test_cli/ tests/test_config/ tests/test_models/
+
+# Run UI tests only
+pytest tests/test_abui/
 
 # Run tests with coverage report
 pytest --cov=ab_cli --cov-report=term-missing
@@ -145,12 +147,13 @@ pytest --cov=ab_cli --cov-report=term-missing
 
 ### Continuous Integration
 
-The project uses GitHub Actions for continuous integration with the following workflows:
+The project uses GitHub Actions for continuous integration with the following parallel jobs:
 
-- **Automated testing** with coverage reporting
-- **Code quality checks** using ruff for linting and formatting
-- **Type checking** with mypy
-- **Coverage badge** generation on the badges branch
+- **Linting**: Code quality checks using ruff for linting, formatting, and mypy for type checking
+- **CLI Tests**: Tests for core CLI functionality with dedicated coverage reporting
+- **UI Tests**: Tests for UI components with separate coverage reporting
+- **Build**: Package building for distribution (triggered only if all other jobs pass)
+- **Badge Updates**: Automated updates to coverage badges (triggered only on master branch)
 
 See [TESTING.md](TESTING.md) for more information on testing practices and procedures.
 
