@@ -57,11 +57,24 @@ Action buttons at the top of the page allow you to quickly:
 
 ### Chat Interface
 
-The Chat page lets you interact with your agents:
-- Send messages to an agent and see its responses
-- View the chat history
-- Clear the conversation
-- Select a different agent to chat with
+The Chat page lets you interact with your agents through two types of interfaces:
+
+#### Chat Interface (for chat and RAG agents)
+- Uses Streamlit's native `st.chat_message()` component for a modern chat experience
+- Send messages to an agent and see its responses in a conversational format
+- View the chat history with proper styling for user and assistant messages
+- Displays any tools associated with the agent as visual indicators
+- Automatically formats structured (JSON) responses for better readability
+- Clear the conversation or change agents using buttons at the bottom
+
+#### Task Interface (for task agents)
+- Provides a JSON editor with schema validation based on the agent's inputSchema
+- Shows required fields and validates input against the schema
+- Displays task history using the same chat message component
+- Presents structured responses in a properly formatted JSON viewer
+- Shows any tools that the task agent has access to
+
+Both interfaces display agent details and tools in expandable sections, making it easy to understand the agent's capabilities and configuration.
 
 ## Navigation
 
@@ -115,12 +128,20 @@ The UI has been improved with the following key changes:
    - Removed redundant headings for cleaner information display
    - Organized information into clear, tabbed sections
 
-3. **Error Handling**:
+3. **Enhanced Chat Interface**:
+   - Upgraded to use Streamlit's `st.chat_message()` component for a more intuitive chat experience
+   - Added automatic detection of agent type to provide appropriate interface (chat or task)
+   - Implemented JSON editor with validation for task agents
+   - Added visual indicators of agent tools to make capabilities transparent
+   - Improved handling of structured (JSON) responses with proper formatting
+   - Added task-specific interface for agents with inputSchema defined
+
+4. **Error Handling**:
    - Added robust error handling for API interactions
    - Improved feedback for configuration issues
    - Enhanced model information extraction with multiple fallback strategies
 
-4. **Code Organization**:
+5. **Code Organization**:
    - Improved modularity with Data Provider pattern
    - Eliminated code duplication across views
    - Better testability through clean separation of concerns
@@ -254,6 +275,8 @@ If you have issues with the chat interface:
 - Verify the agent is properly configured
 - Check if the agent is available and operational
 - Try invoking the agent directly via the CLI to check for API issues
+- For task agents, ensure your JSON input matches the required schema
+- For structured responses, if JSON display looks incorrect, try clearing browser cache
 
 ### Using Mock Data Provider
 

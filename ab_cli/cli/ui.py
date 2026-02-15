@@ -91,7 +91,7 @@ def ui(
             cmd.extend(["--config", str(config_path)])
 
         if verbose:
-            cmd.extend(["--verbose", "true"])
+            cmd.extend(["--verbose"])
 
         if mock:
             # Also pass mock flag to the app

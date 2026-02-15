@@ -135,3 +135,27 @@ def extract_text_from_object(obj: Any) -> str:
                 return result
     # Default to empty string if no text could be found
     return "No response text found"
+
+
+def format_json(obj: Any) -> str:
+    """Format JSON object for display.
+
+    This function takes any JSON-serializable object and returns a nicely formatted
+    string representation suitable for display. It handles special cases like nested
+    structures and ensures consistent spacing.
+
+    Args:
+        obj: JSON-serializable object
+
+    Returns:
+        Formatted JSON string
+    """
+    # Use json.dumps with standard formatting options
+    try:
+        return json.dumps(obj, indent=2, sort_keys=False, ensure_ascii=False)
+    except (TypeError, ValueError):
+        # If the object can't be JSON-serialized, try to convert it to a string
+        try:
+            return str(obj)
+        except Exception:
+            return "Unable to format object as JSON"

@@ -1,6 +1,7 @@
 """Chat page for the Agent Builder UI."""
 
-from typing import Any
+import json
+from typing import Any, cast
 
 import streamlit as st
 
@@ -8,168 +9,246 @@ from ab_cli.abui.providers.provider_factory import get_data_provider
 
 
 def show_chat_page() -> None:
-    """Display the chat page with agent conversation interface."""
-    st.title("Chat with Agent")
+    """Show the chat interface."""
+    st.title("Agent Builder Chat")
 
-    # Get the configuration from the session state
-    config = st.session_state.get("config")
-    if not config:
-        st.error("Configuration not loaded. Please check your settings.")
-        return
+    config = st.session_state.get("config", {})
+    data_provider = get_data_provider(config)
+    agents = data_provider.get_agents()
 
-    # Get or create data provider
-    if "data_provider" not in st.session_state:
-        st.session_state.data_provider = get_data_provider(config)
-
-    # Check if an agent is selected
-    selected_agent = st.session_state.get("selected_agent")
-
-    # If no agent is selected, show a selection dropdown
-    if not selected_agent:
-        agent_selection()
-    else:
-        chat_interface(selected_agent)
-
-
-def agent_selection() -> None:
-    """Display agent selection interface."""
-    st.subheader("Select an Agent to Chat With")
-
-    # Get data provider from session state
-    provider = st.session_state.data_provider
-
-    try:
-        # Get list of agents from data provider
-        agents = provider.get_agents()
-
-        if not agents:
-            st.info("No agents found. Create an agent first.")
-            if st.button("Go to Agent Management"):
-                st.session_state.nav_intent = "Agents"
-                st.rerun()
-            return
-
-        # Create a selectbox with agent names
-        agent_names = [agent["name"] for agent in agents]
-        selected_name = st.selectbox("Choose an agent", agent_names)
-
-        # Find the selected agent
-        selected_agent = next((a for a in agents if a["name"] == selected_name), None)
-
-        if selected_agent and st.button("Start Chat"):
-            st.session_state.selected_agent = selected_agent
-
-            # Initialize chat history for this agent
-            if "chat_history" not in st.session_state:
-                st.session_state.chat_history = {}
-
-            agent_id = selected_agent["id"]
-            if agent_id not in st.session_state.chat_history:
-                st.session_state.chat_history[agent_id] = []
-
-            st.rerun()
-
-    except Exception as e:
-        st.error(f"Error loading agents: {e}")
-
-
-def chat_interface(agent: dict[str, Any]) -> None:
-    """Display the chat interface for a selected agent.
-
-    Args:
-        agent: Dictionary containing agent information
-    """
-    st.subheader(f"Chat with {agent['name']}")
-
-    # Show agent information
-    with st.expander("Agent Details", expanded=False):
-        st.markdown(f"**ID:** {agent['id']}")
-        st.markdown(f"**Type:** {agent['type']}")
-
-        # Get model information - check different possible locations
-        model = None
-        # Try to get from direct model field
-        if "model" in agent:
-            model = agent["model"]
-        # Try to get from agent_config if available
-        elif "agent_config" in agent and "llmModelId" in agent["agent_config"]:
-            model = agent["agent_config"]["llmModelId"]
-        # Fallback to type
-        else:
-            model = agent.get("type", "unknown")
-
-        st.markdown(f"**Model:** {model}")
-
-        if agent.get("description"):
-            st.markdown(f"**Description:** {agent['description']}")
-
-    # Get or initialize chat history for this agent
-    agent_id = agent["id"]
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = {}
+
+    # Initialize if needed
+    if "selected_agent" not in st.session_state:
+        st.session_state.selected_agent = None
+
+    # Clear agent selection if user explicitly returns to agent selection
+    if "return_to_chat" in st.session_state and st.session_state.return_to_chat:
+        st.session_state.selected_agent = None
+        st.session_state.return_to_chat = False
+
+    # Agent Selection
+    if st.session_state.selected_agent is None:
+        st.subheader("Select an Agent to Chat With")
+
+        agent_names = [agent["name"] for agent in agents]
+        agent_ids = [agent["id"] for agent in agents]
+
+        selected_index = st.selectbox(
+            "Choose an agent:", range(len(agent_names)), format_func=lambda i: agent_names[i]
+        )
+
+        if st.button("Chat with Agent"):
+            selected_agent = next((a for a in agents if a["id"] == agent_ids[selected_index]), None)
+            if selected_agent:
+                st.session_state.selected_agent = selected_agent
+
+                # Initialize chat history for this agent if needed
+                if selected_agent["id"] not in st.session_state.chat_history:
+                    st.session_state.chat_history[selected_agent["id"]] = []
+
+                st.rerun()
+    else:
+        # Show chat interface with selected agent
+        agent = st.session_state.selected_agent
+        agent_type = agent.get("type", "chat").lower()
+
+        if st.button("← Back to Agent Selection"):
+            st.session_state.selected_agent = None
+            st.rerun()
+
+        # Display agent tools if available
+        display_agent_tools(agent)
+
+        # Different interfaces based on agent type
+        if agent_type == "task":
+            show_task_agent_interface(agent)
+        else:
+            show_chat_agent_interface(agent)
+
+
+def show_chat_agent_interface(agent: dict[str, Any]) -> None:
+    """Show the chat interface for chat and RAG agents."""
+    agent_id = agent["id"]
+    st.subheader(f"Chat with {agent['name']}")
+
+    # Initialize or get chat history
     if agent_id not in st.session_state.chat_history:
         st.session_state.chat_history[agent_id] = []
 
-    # Display chat history
     chat_history = st.session_state.chat_history[agent_id]
 
-    # Chat container with fixed height and scrolling
-    chat_container = st.container()
-    with chat_container:
-        for message in chat_history:
-            role = message["role"]
-            content = message["content"]
+    # Display chat history
+    display_chat_history(chat_history)
 
-            # Style based on role
-            if role == "user":
-                st.markdown(f"**You**: {content}")
-            else:
-                st.markdown(f"**{agent['name']}**: {content}")
+    # Chat input
+    user_message = st.chat_input("Type a message...")
+    if user_message:
+        # Add user message to chat history
+        chat_history.append({"role": "user", "content": user_message})
 
-            # Add a separator
-            st.markdown("---")
+        # Simulate agent response (in a real app, this would call the API)
+        config = st.session_state.get("config", {})
+        data_provider = get_data_provider(config)
 
-    # Input area for new message
-    with st.form("chat_input_form"):
-        user_input = st.text_area("Your message:", height=100)
-        submitted = st.form_submit_button("Send")
+        try:
+            response = data_provider.invoke_agent(agent_id, user_message)
 
-        if submitted and user_input:
-            # Add user message to history
-            chat_history.append({"role": "user", "content": user_input})
+            # Add agent response to chat history
+            chat_history.append({"role": "assistant", "content": response})
 
-            # Get data provider from session state
-            provider = st.session_state.data_provider
-
-            # Get agent response with a loading spinner
-            with st.spinner(f"Invoking agent {agent['name']}..."):
-                try:
-                    response = provider.invoke_agent(agent["id"], user_input)
-
-                    # Add agent response to history with agent name for clarity
-                    display_response = f"{response}"
-                    chat_history.append({"role": "assistant", "content": display_response})
-
-                    # Update session state
-                    st.session_state.chat_history[agent_id] = chat_history
-
-                    # Rerun to update the UI
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"Error getting response: {e}")
-
-    # Button to clear chat history
-    if st.button("Clear Chat History"):
-        st.session_state.chat_history[agent_id] = []
-        st.rerun()
-
-    # Button to go back to agent selection
-    if st.button("Change Agent"):
-        st.session_state.selected_agent = None
-        st.rerun()
+            # Force UI refresh
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
 
 
-# The extract_json_from_text and extract_text_from_object functions are now imported from utils
-# The get_agents, get_fallback_agents, and invoke_agent functions are no longer needed
-# as the data provider handles this functionality
+def show_task_agent_interface(agent: dict[str, Any]) -> None:
+    """Show the task interface for task agents."""
+    agent_id = agent["id"]
+    st.subheader(f"Task Agent: {agent['name']}")
+
+    # Check if agent has an inputSchema
+    agent_config = agent.get("agent_config", {})
+    input_schema = agent_config.get("inputSchema", {})
+
+    if not input_schema:
+        st.warning("This task agent doesn't have an input schema defined.")
+        return
+
+    # Display task input editor
+    st.markdown("### Task Input")
+    task_input = json_task_editor(input_schema)
+
+    if st.button("Submit Task"):
+        if task_input:
+            # Add task to chat history
+            if agent_id not in st.session_state.chat_history:
+                st.session_state.chat_history[agent_id] = []
+
+            # Add formatted input as user message
+            st.session_state.chat_history[agent_id].append(
+                {"role": "user", "content": json.dumps(task_input, indent=2)}
+            )
+
+            # Simulate task execution (in a real app, call the API)
+            config = st.session_state.get("config", {})
+            data_provider = get_data_provider(config)
+
+            try:
+                # Use the standard invoke_agent method for task agents too
+                response = data_provider.invoke_agent(agent_id, json.dumps(task_input))
+
+                # Add response to chat history
+                st.session_state.chat_history[agent_id].append(
+                    {"role": "assistant", "content": response}
+                )
+
+                # Force UI refresh
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+        else:
+            st.error("Please fix the validation errors before submitting.")
+
+
+def display_chat_history(chat_history: list[dict[str, str]]) -> None:
+    """Display chat history using st.chat_message components.
+
+    Args:
+        chat_history: List of message dictionaries with role and content.
+    """
+    for message in chat_history:
+        role = message["role"]
+        content = message["content"]
+
+        with st.chat_message(role):
+            # Check if content looks like JSON
+            try:
+                if content.strip().startswith("{") and content.strip().endswith("}"):
+                    # Try to parse and format JSON
+                    json_data = json.loads(content)
+                    st.json(json_data)
+                else:
+                    # Regular text
+                    st.write(content)
+            except (json.JSONDecodeError, AttributeError):
+                # Not valid JSON or not a string, display as is
+                st.write(content)
+
+
+def json_task_editor(input_schema: dict[str, Any]) -> dict[str, Any] | None:
+    """Create a JSON editor with schema validation.
+
+    Args:
+        input_schema: JSON schema for task input validation.
+
+    Returns:
+        Validated JSON object or None if validation fails.
+    """
+    # Create default JSON object based on schema
+    default_json: dict[str, Any] = {}
+    if "properties" in input_schema:
+        for prop, prop_schema in input_schema["properties"].items():
+            # Set sensible defaults based on type
+            prop_type = prop_schema.get("type")
+            if prop_type == "string":
+                default_json[prop] = ""
+            elif prop_type == "number" or prop_type == "integer":
+                default_json[prop] = 0
+            elif prop_type == "boolean":
+                default_json[prop] = False
+            elif prop_type == "array":
+                default_json[prop] = []
+            elif prop_type == "object":
+                default_json[prop] = {}
+
+    # Add required field indicators
+    required_fields = input_schema.get("required", [])
+
+    if required_fields:
+        st.caption("Fields marked with * are required")
+
+    json_str = st.text_area("JSON Input:", value=json.dumps(default_json, indent=2), height=200)
+
+    # Validate JSON format
+    try:
+        task_input = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        st.error(f"Invalid JSON format: {str(e)}")
+        return None
+
+    # Validate required fields
+    validation_errors = []
+    for field in required_fields:
+        if field not in task_input or task_input[field] == "":
+            validation_errors.append(f"Field '{field}' is required.")
+
+    # Show validation errors if any
+    if validation_errors:
+        for error in validation_errors:
+            st.error(error)
+        return None
+
+    return cast(dict[str, Any], task_input)
+
+
+def display_agent_tools(agent: dict[str, Any]) -> None:
+    """Display agent tools in an expandable section.
+
+    Args:
+        agent: The agent data.
+    """
+    tools = agent.get("agent_config", {}).get("tools", [])
+
+    if tools:
+        with st.expander("Agent Tools"):
+            for tool in tools:
+                tool_name = tool.get("name", "Unnamed Tool")
+                tool_type = tool.get("type", "unknown")
+                tool_desc = tool.get("description", "No description")
+
+                st.markdown(f"**{tool_name}** ({tool_type})")
+                st.markdown(f"{tool_desc}")
+                st.markdown("---")
