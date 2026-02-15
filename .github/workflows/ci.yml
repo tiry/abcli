@@ -161,6 +161,12 @@ jobs:
     needs: [test-cli, test-ui]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout badges branch
+        uses: actions/checkout@v4
+        with:
+          ref: badges
+          fetch-depth: 0
+          
       - name: Download CLI coverage badge
         uses: actions/download-artifact@v4
         with:
@@ -173,28 +179,16 @@ jobs:
           name: coverage-badge-ui
           path: .
           
-      - name: Commit coverage badges to badges branch
+      - name: Commit and push badges
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          # Try to fetch and checkout badges branch, or create it if it doesn't exist
-          if git fetch origin badges:badges 2>/dev/null; then
-            # Branch exists, check it out
-            git checkout badges
-          else
-            # Branch doesn't exist, create orphan branch
-            git checkout --orphan badges
-            # Clean all files from the new branch
-            git rm -rf . 2>/dev/null || true
-          fi
-
-          # Copy badges
-          mkdir -p .github
-          cp ../coverage.svg .
-          cp ../coverage_ui.svg .
-
-          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add the badges
           git add coverage.svg coverage_ui.svg
+          
+          # Only commit if there are changes
           git diff --quiet && git diff --staged --quiet || git commit -m "Update coverage badges"
-          git push origin badges
+          
+          # Push to badges branch
+          git push
