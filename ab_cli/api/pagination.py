@@ -32,7 +32,7 @@ class PaginatedResult:
 
 def fetch_agents_paginated(
     client: AgentBuilderClient,
-    settings: ABSettings,
+    settings: ABSettings | None = None,
     offset: int = 0,
     limit: int = 50,
     page: int | None = None,
@@ -49,7 +49,7 @@ def fetch_agents_paginated(
 
     Args:
         client: API client instance.
-        settings: Application settings (for max_filter_pages).
+        settings: Application settings (for max_filter_pages). Optional, uses defaults if not provided.
         offset: Starting offset (0-based).
         limit: Number of results to return.
         page: Page number (1-based, alternative to offset).
@@ -79,8 +79,8 @@ def fetch_agents_paginated(
         )
 
     # With filters: fetch multiple pages until we have enough matches
-    max_filter_pages = 10
-    if settings.pagination:
+    max_filter_pages = 10  # Default
+    if settings and settings.pagination:
         max_filter_pages = settings.pagination.max_filter_pages
 
     filtered_agents: list[Agent] = []

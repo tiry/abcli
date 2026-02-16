@@ -102,8 +102,13 @@ def list_agents(
         current_offset = offset
 
         try:
-            config_file = config_path or find_config_file()
-            settings = load_config(config_file)
+            # Try to load settings, but use None if not available
+            settings = None
+            try:
+                config_file = config_path or find_config_file()
+                settings = load_config(config_file)
+            except Exception:
+                pass  # Use default pagination settings
 
             with get_client(config_path) as client:
                 while True:
@@ -172,9 +177,13 @@ def list_agents(
 
     # Normal (non-interactive) mode
     try:
-        # Load settings for pagination config
-        config_file = config_path or find_config_file()
-        settings = load_config(config_file)
+        # Try to load settings, but use None if not available
+        settings = None
+        try:
+            config_file = config_path or find_config_file()
+            settings = load_config(config_file)
+        except Exception:
+            pass  # Use default pagination settings
 
         with get_client(config_path) as client:
             # Use pagination module (handles all API and filtering logic)
