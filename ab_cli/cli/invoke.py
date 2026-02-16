@@ -188,7 +188,8 @@ def chat(
 @invoke.command("task")
 @click.argument("agent_id")
 @click.argument("version_id", required=False, default="latest")
-@click.option("--input", "-i", "input_file", required=True, type=click.Path(exists=True))
+@click.option("--task", "-t", help="Task data as JSON string")
+@click.option("--task-file", type=click.Path(exists=True), help="Path to task data file")
 @click.option("--stream", "-s", is_flag=True, help="Enable streaming")
 @click.option(
     "--format",
@@ -206,7 +207,8 @@ def task(
     ctx: click.Context,
     agent_id: str,
     version_id: str,
-    input_file: str,
+    task: str | None,
+    task_file: str | None,
     stream: bool,
     output_format: str,
     verbose: bool,
@@ -214,16 +216,33 @@ def task(
     """Invoke task agent with structured input."""
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
-    # Load input file
-    try:
-        with open(input_file) as f:
-            inputs = json.load(f)
-    except json.JSONDecodeError as e:
-        error_console.print(f"[red]Invalid JSON in input file:[/red] {e}")
+    # Validate mutual exclusivity
+    if task and task_file:
+        error_console.print("[red]Error: Cannot specify both --task and --task-file[/red]")
         sys.exit(1)
-    except Exception as e:
-        error_console.print(f"[red]Error reading input file:[/red] {e}")
+
+    if not task and not task_file:
+        error_console.print("[red]Error: Must specify either --task or --task-file[/red]")
         sys.exit(1)
+
+    # Parse task data
+    if task:
+        try:
+            inputs = json.loads(task)
+        except json.JSONDecodeError as e:
+            error_console.print(f"[red]Invalid JSON in --task parameter:[/red] {e}")
+            sys.exit(1)
+    else:
+        # Load from file
+        try:
+            with open(task_file) as f:  # type: ignore
+                inputs = json.load(f)
+        except json.JSONDecodeError as e:
+            error_console.print(f"[red]Invalid JSON in file {task_file}:[/red] {e}")
+            sys.exit(1)
+        except Exception as e:
+            error_console.print(f"[red]Error reading task file:[/red] {e}")
+            sys.exit(1)
 
     # Prepare request
     request = InvokeTaskRequest(inputs=inputs)

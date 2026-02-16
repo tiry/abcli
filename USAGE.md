@@ -520,14 +520,17 @@ Is there anything else you'd like me to calculate?
 ### Task Invocation
 
 ```bash
-# Invoke a task agent
-ab invoke task <agent-id> --input '{"key1": "value1", "key2": "value2"}'
+# Invoke a task agent with inline task data
+ab invoke task <agent-id> --task '{"key1": "value1", "key2": "value2"}'
 
 # Invoke with JSON format output
-ab invoke task <agent-id> --input '{"key1": "value1"}' --format json
+ab invoke task <agent-id> --task '{"key1": "value1"}' --format json
 
-# Invoke with input from file
-ab invoke task <agent-id> --input-file input.json
+# Invoke with task data from file
+ab invoke task <agent-id> --task-file task.json
+
+# More complex example with inline JSON
+ab invoke task <agent-id> --task '{"claim_id": "01", "policy_number": "POL001", "description": "Damage"}' --format json
 ```
 
 ### Interactive Mode

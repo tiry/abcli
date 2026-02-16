@@ -252,12 +252,12 @@ class TestInvokeTask:
             # catch_exceptions=False to see actual errors
             return runner.invoke(invoke, args, obj=obj, catch_exceptions=False, standalone_mode=False)
 
-    def test_task_basic(self, runner, mock_get_client, tmp_path):
-        """Test basic task invocation with input file."""
-        # Create input file
-        input_file = tmp_path / "input.json"
-        input_data = {"query": "What is the capital of France?"}
-        input_file.write_text(json.dumps(input_data))
+    def test_task_basic_file(self, runner, mock_get_client, tmp_path):
+        """Test basic task invocation with task file."""
+        # Create task file
+        task_file = tmp_path / "task.json"
+        task_data = {"query": "What is the capital of France?"}
+        task_file.write_text(json.dumps(task_data))
 
         # Mock response
         mock_response = InvokeResponse(
@@ -272,7 +272,7 @@ class TestInvokeTask:
         result = self.invoke_command(runner, [
             "task",
             "agent-123",
-            "--input", str(input_file)
+            "--task-file", str(task_file)
         ], mock_client=mock_get_client)
 
         # Verify command succeeded
@@ -292,12 +292,48 @@ class TestInvokeTask:
         # Verify output contains the response
         assert "Paris is the capital of France." in result.output
 
+    def test_task_basic_inline(self, runner, mock_get_client):
+        """Test basic task invocation with inline JSON."""
+        # Mock response
+        mock_response = InvokeResponse(
+            response="Calculation result: 42"
+        )
+        mock_get_client.invoke_task.return_value = mock_response
+
+        # Create context object with empty config
+        ctx_obj = {"config_path": None}
+
+        # Run command with inline JSON
+        task_json = '{"claim_id": "01", "policy_number": "POL001"}'
+        result = self.invoke_command(runner, [
+            "task",
+            "agent-123",
+            "--task", task_json
+        ], mock_client=mock_get_client)
+
+        # Verify command succeeded
+        assert result.exit_code == 0
+
+        # Verify client was called correctly
+        mock_get_client.invoke_task.assert_called_once()
+        call_args = mock_get_client.invoke_task.call_args
+        assert call_args[0][0] == "agent-123"  # agent_id
+
+        # Request should have the inputs
+        request = call_args[0][2]  # InvokeTaskRequest
+        assert isinstance(request, InvokeTaskRequest)
+        assert request.inputs["claim_id"] == "01"
+        assert request.inputs["policy_number"] == "POL001"
+
+        # Verify output contains the response
+        assert "Calculation result: 42" in result.output
+
     def test_task_with_version_id(self, runner, mock_get_client, tmp_path):
         """Test task invocation with specific version ID."""
-        # Create input file
-        input_file = tmp_path / "input.json"
-        input_data = {"query": "Test query"}
-        input_file.write_text(json.dumps(input_data))
+        # Create task file
+        task_file = tmp_path / "task.json"
+        task_data = {"query": "Test query"}
+        task_file.write_text(json.dumps(task_data))
 
         mock_get_client.invoke_task.return_value = InvokeResponse(
             response="Version-specific response"
@@ -310,7 +346,7 @@ class TestInvokeTask:
             "task",
             "agent-123",
             "version-456",
-            "--input", str(input_file)
+            "--task-file", str(task_file)
         ], mock_client=mock_get_client)
 
         assert result.exit_code == 0
@@ -319,32 +355,62 @@ class TestInvokeTask:
         assert call_args[0][0] == "agent-123"
         assert call_args[0][1] == "version-456"
 
-    def test_task_missing_input_file(self, runner, mock_get_client):
-        """Test error when no input file is provided."""
-        # This should raise a Click MissingParameter exception
-        # Using catch_exceptions=True to catch the exception
-        with patch("ab_cli.cli.invoke.get_client") as mock_get_client_patch:
-            result = runner.invoke(invoke, ["task", "agent-123"],
-                                  obj={"config_path": None},
-                                  catch_exceptions=True)
+    def test_task_missing_options(self, runner, mock_get_client):
+        """Test error when neither --task nor --task-file is provided."""
+        result = self.invoke_command(runner, ["task", "agent-123"], mock_client=mock_get_client)
 
         # Verify command failed with the correct error
         assert result.exit_code != 0
-        assert "Missing option '--input'" in result.output
+        assert "Must specify either --task or --task-file" in result.output
 
         # Verify client was not called since the command validation failed
         mock_get_client.invoke_task.assert_not_called()
 
-    def test_task_invalid_json(self, runner, mock_get_client, tmp_path):
-        """Test error when input file contains invalid JSON."""
-        # Create invalid JSON file
-        input_file = tmp_path / "invalid.json"
-        input_file.write_text("{invalid json")
+    def test_task_both_options_error(self, runner, mock_get_client, tmp_path):
+        """Test error when both --task and --task-file are specified."""
+        # Create task file
+        task_file = tmp_path / "task.json"
+        task_file.write_text('{"id": "01"}')
 
         result = self.invoke_command(runner, [
             "task",
             "agent-123",
-            "--input", str(input_file)
+            "--task", '{"id": "02"}',
+            "--task-file", str(task_file)
+        ], mock_client=mock_get_client)
+
+        # Verify command failed
+        assert result.exit_code != 0
+        assert "Cannot specify both --task and --task-file" in result.output
+
+        # Verify client was not called
+        mock_get_client.invoke_task.assert_not_called()
+
+    def test_task_invalid_json_inline(self, runner, mock_get_client):
+        """Test error when --task contains invalid JSON."""
+        result = self.invoke_command(runner, [
+            "task",
+            "agent-123",
+            "--task", "{invalid json"
+        ], mock_client=mock_get_client)
+
+        # Verify command failed
+        assert result.exit_code != 0
+        assert "Invalid JSON in --task parameter" in result.output
+
+        # Verify client was not called
+        mock_get_client.invoke_task.assert_not_called()
+
+    def test_task_invalid_json_file(self, runner, mock_get_client, tmp_path):
+        """Test error when task file contains invalid JSON."""
+        # Create invalid JSON file
+        task_file = tmp_path / "invalid.json"
+        task_file.write_text("{invalid json")
+
+        result = self.invoke_command(runner, [
+            "task",
+            "agent-123",
+            "--task-file", str(task_file)
         ], mock_client=mock_get_client)
 
         # Verify command failed
@@ -356,10 +422,10 @@ class TestInvokeTask:
 
     def test_task_stream(self, runner, mock_get_client, tmp_path):
         """Test streaming task invocation."""
-        # Create input file
-        input_file = tmp_path / "input.json"
-        input_data = {"query": "Test query"}
-        input_file.write_text(json.dumps(input_data))
+        # Create task file
+        task_file = tmp_path / "task.json"
+        task_data = {"query": "Test query"}
+        task_file.write_text(json.dumps(task_data))
 
         # Mock stream events
         mock_events = [
@@ -376,7 +442,7 @@ class TestInvokeTask:
         result = self.invoke_command(runner, [
             "task",
             "agent-123",
-            "--input", str(input_file),
+            "--task-file", str(task_file),
             "--stream"
         ], mock_client=mock_get_client)
 
