@@ -120,6 +120,10 @@ def chat(
     verbose: bool,
 ) -> None:
     """Invoke agent with a chat message."""
+    # Combine global and command-level verbose (hierarchical)
+    global_verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    verbose = global_verbose or verbose
+
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     # Get message content from options or file
@@ -214,6 +218,10 @@ def task(
     verbose: bool,
 ) -> None:
     """Invoke task agent with structured input."""
+    # Combine global and command-level verbose (hierarchical)
+    global_verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    verbose = global_verbose or verbose
+
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     # Validate mutual exclusivity
