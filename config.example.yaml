@@ -45,6 +45,12 @@ default_output_format: "table"
 # to the 'audit' folder next to the config file
 record_updates: false
 
+# Pagination Configuration (optional)
+pagination:
+  # Maximum number of server pages to fetch when using client-side filters
+  # Higher values allow more complete filtered results but slower responses
+  max_filter_pages: 10
+
 # UI Configuration (optional)
 ui:
   # Data Provider mode: "cli" or "mock"

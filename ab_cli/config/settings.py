@@ -129,6 +129,20 @@ class ABSettings(BaseSettings):
         ),
     ]
 
+    # Pagination Configuration
+    class PaginationSettings(BaseSettings):
+        """Pagination-specific settings."""
+
+        max_filter_pages: Annotated[
+            int,
+            Field(
+                default=10,
+                ge=1,
+                le=100,
+                description="Maximum server pages to fetch when using client-side filters",
+            ),
+        ]
+
     # UI Configuration
     class UISettings(BaseSettings):
         """UI-specific settings."""
@@ -168,6 +182,14 @@ class ABSettings(BaseSettings):
             if v_lower not in allowed:
                 raise ValueError(f"Data provider must be one of {allowed}, got: {v}")
             return v_lower
+
+    pagination: Annotated[
+        PaginationSettings | None,
+        Field(
+            default=None,
+            description="Pagination configuration settings",
+        ),
+    ] = None
 
     ui: Annotated[
         UISettings | None,

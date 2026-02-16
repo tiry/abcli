@@ -132,8 +132,14 @@ Step 3/3: Testing API connectivity
 # List all agents
 ab agents list
 
-# Paginate results
+# Paginate results with offset (traditional approach)
 ab agents list --limit 10 --offset 20
+
+# Jump to a specific page (cannot be used with --offset or filters)
+ab agents list --page 2 --limit 25
+
+# Interactive pagination mode (press SPACE for next page, 'q' to quit)
+ab agents list --more --limit 20
 
 # Filter by agent type
 ab agents list --type rag
@@ -151,10 +157,24 @@ ab agents list --type tool --name "calculator"
 ab agents list --format json
 ```
 
+#### Pagination Options
+
+| Option | Description | Conflicts With |
+|--------|-------------|----------------|
+| `--limit, -l` | Number of results per page (default: 50) | - |
+| `--offset, -o` | Starting offset for results (default: 0) | `--page` |
+| `--page, -p` | Jump directly to page N (1-indexed) | `--offset`, filters |
+| `--more` | Interactive mode - press SPACE for next page | - |
+
+**Important Notes:**
+- `--page` cannot be used with `--offset` or when filters are applied
+- When filtering, the CLI fetches multiple server pages to collect enough matching results (configurable via `max_filter_pages` in config.yaml)
+- Interactive `--more` mode works with or without filters
+
 **Example Output (Table Format):**
 
 ```
-                            Agents (35 total)
+                            35 agents of 150 total
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ ID                              ┃ Name         ┃ Type ┃ Status  ┃ Created   ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━┩
@@ -162,6 +182,44 @@ ab agents list --format json
 │ d9ce3525-0899-48b1-869f-ff9a... │ Document RAG │ rag  │ CREATED │ 2026-02-… │
 │ 10238ef8-1882-430c-8cbb-3498... │ Insurance    │ task │ CREATED │ 2026-02-… │
 └───────────────────────────────┴──────────────┴──────┴─────────┴───────────┘
+
+Page: 1/3 | Showing: 1-50 of 150 | Page size: 50
+
+Next page: ab agents list --offset 50 -l 50
+```
+
+**Example Output (With Filters):**
+
+```
+                            15 agents
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┓
+┃ ID                              ┃ Name         ┃ Type ┃ Status  ┃ Created   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━┩
+│ 8f6c2178-4f0a-43fb-88d7-f3d8... │ Calculator   │ tool │ CREATED │ 2026-02-… │
+│ 3a5f891c-29b7-4e12-a094-c7f2... │ Math Helper  │ tool │ CREATED │ 2026-02-… │
+└───────────────────────────────┴──────────────┴──────┴─────────┴───────────┘
+
+Showing: 1-15 of ??? (filtered by type: tool) | Page size: 50
+(End of results)
+```
+
+**Example Interactive Session:**
+
+```bash
+$ ab agents list --more -l 10
+
+                            10 agents of 150 total
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┓
+┃ ID                              ┃ Name         ┃ Type ┃ Status  ┃ Created   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━┩
+│ 8f6c2178-4f0a-43fb-88d7-f3d8... │ Calculator   │ tool │ CREATED │ 2026-02-… │
+│ d9ce3525-0899-48b1-869f-ff9a... │ Document RAG │ rag  │ CREATED │ 2026-02-… │
+│ ...                             │ ...          │ ...  │ ...     │ ...       │
+└───────────────────────────────┴──────────────┴──────┴─────────┴───────────┘
+
+Page: 1/15 | Showing: 1-10 of 150 | Page size: 10
+
+Press SPACE for next page, 'q' to quit: 
 ```
 
 **Example Output (JSON Format):**
