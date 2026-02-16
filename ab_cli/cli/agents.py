@@ -53,6 +53,9 @@ def agents() -> None:
     default="table",
     help="Output format",
 )
+@click.option(
+    "--verbose", "-v", is_flag=True, help="Show verbose output including raw API response"
+)
 @click.pass_context
 def list_agents(
     ctx: click.Context,
@@ -61,8 +64,13 @@ def list_agents(
     agent_type: str | None,
     name_pattern: str | None,
     output_format: str,
+    verbose: bool,
 ) -> None:
     """List all agents in the environment."""
+    # Combine global and command-level verbose (hierarchical)
+    global_verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    verbose = global_verbose or verbose
+
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     try:
@@ -100,6 +108,27 @@ def list_agents(
             # Update count for display
             filtered_count = len(filtered_agents)
             total_count = result.pagination.total_items
+
+            # Verbose logging
+            if verbose:
+                console.print("\n[dim]═══ API Response Details ═══[/dim]")
+                console.print(f"[dim]Requested limit: {limit}[/dim]")
+                console.print(f"[dim]Requested offset: {offset}[/dim]")
+                console.print(f"[dim]Agents returned: {len(result.agents)}[/dim]")
+                console.print(f"[dim]Pagination total_items: {result.pagination.total_items}[/dim]")
+                console.print(f"[dim]Pagination offset: {result.pagination.offset}[/dim]")
+                console.print(f"[dim]Pagination limit: {result.pagination.limit}[/dim]")
+                if agent_type:
+                    console.print(f"[dim]Client-side type filter applied: {agent_type}[/dim]")
+                if name_pattern:
+                    console.print(f"[dim]Client-side name filter applied: {name_pattern}[/dim]")
+                console.print(f"[dim]After filtering: {filtered_count} agents[/dim]")
+                console.print("[dim]═══════════════════════════[/dim]\n")
+
+                # Show raw API response
+                console.print("[dim]Raw API response:[/dim]")
+                console.print_json(result.model_dump_json())
+                console.print()
 
             # Create display title based on whether filtering was applied
             if agent_type or name_pattern:
