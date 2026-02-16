@@ -65,3 +65,35 @@ class DataProvider(ABC):
     def clear_cache(self) -> None:
         """Clear any cached data."""
         pass
+
+    @abstractmethod
+    def get_versions(self, agent_id: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get list of versions for an agent.
+
+        Args:
+            agent_id: The ID of the agent
+            limit: Maximum number of versions to return
+            offset: Offset for pagination
+
+        Returns:
+            Dictionary containing:
+            - versions: list of version dictionaries
+            - pagination: pagination metadata (limit, offset, total_items)
+            - agent: agent basic info
+        """
+        pass
+
+    @abstractmethod
+    def get_version(self, agent_id: str, version_id: str) -> dict[str, Any] | None:
+        """Get details of a specific version.
+
+        Args:
+            agent_id: The ID of the agent
+            version_id: The ID of the version (or "latest")
+
+        Returns:
+            Dictionary containing:
+            - version: version details with config
+            - agent: agent basic info
+        """
+        pass

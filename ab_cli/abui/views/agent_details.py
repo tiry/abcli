@@ -29,7 +29,13 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
 
     if "systemPrompt" in agent_config:
         st.markdown("#### System Prompt")
-        st.text_area("", value=agent_config["systemPrompt"], height=100, disabled=True)
+        st.text_area(
+            "System Prompt",
+            value=agent_config["systemPrompt"],
+            height=100,
+            disabled=True,
+            label_visibility="collapsed",
+        )
         st.markdown("---")
 
     # Display guardrails if available
@@ -239,14 +245,101 @@ def show_agent_details_page() -> None:
                 except Exception as e:
                     st.error(f"Error fetching agent configuration: {e}")
 
-    # Versions tab - For now, we still use the CLI directly for versions
-    # In a future update, the data provider should also handle versions
+    # Versions tab
     with tabs[2]:
         st.markdown("### Agent Versions")
 
-        # Display information about version feature being unavailable
-        st.warning("Version history functionality is not yet implemented in the data provider")
-        st.info("This feature will be available in a future update")
+        with st.spinner("Loading versions..."):
+            try:
+                versions_data = provider.get_versions(agent_to_view["id"])
+
+                if not versions_data or not versions_data.get("versions"):
+                    st.info("No versions found for this agent")
+                else:
+                    versions = versions_data["versions"]
+                    pagination = versions_data["pagination"]
+
+                    # Display version count
+                    total_versions = pagination.get("total_items", len(versions))
+                    st.info(f"Total versions: {total_versions}")
+
+                    # Prepare data for table display
+                    import pandas as pd
+
+                    table_data = []
+                    for version in versions:
+                        created_at = version.get("created_at") or "N/A"
+                        if created_at and created_at != "N/A" and len(created_at) > 10:
+                            created_at = created_at[:10]
+
+                        # Truncate notes if too long
+                        notes = version.get("notes") or ""
+                        if notes and len(notes) > 50:
+                            notes = notes[:47] + "..."
+
+                        table_data.append(
+                            {
+                                "Number": version["number"],
+                                "Label": version.get("version_label") or "-",
+                                "Notes": notes if notes else "-",
+                                "Created": created_at,
+                                "Created By": version.get("created_by") or "N/A",
+                                "Version ID": version["id"],
+                            }
+                        )
+
+                    # Display as dataframe
+                    df = pd.DataFrame(table_data)
+                    st.dataframe(
+                        df,
+                        width="stretch",
+                        hide_index=True,
+                        column_config={
+                            "Number": st.column_config.NumberColumn("Version", width="small"),
+                            "Label": st.column_config.TextColumn("Label", width="medium"),
+                            "Notes": st.column_config.TextColumn("Notes", width="large"),
+                            "Created": st.column_config.TextColumn("Created", width="small"),
+                            "Created By": st.column_config.TextColumn("Created By", width="medium"),
+                            "Version ID": st.column_config.TextColumn("Version ID", width="medium"),
+                        },
+                    )
+
+                    # Add section to view version details
+                    st.markdown("---")
+                    st.markdown("#### View Version Configuration")
+
+                    # Dropdown to select version
+                    version_options = {
+                        f"Version {v['number']}"
+                        + (f" - {v.get('version_label')}" if v.get("version_label") else ""): v[
+                            "id"
+                        ]
+                        for v in versions
+                    }
+
+                    selected_version_label = st.selectbox(
+                        "Select a version to view its configuration:",
+                        options=list(version_options.keys()),
+                    )
+
+                    if st.button("View Configuration"):
+                        selected_version_id = version_options[selected_version_label]
+                        version_details = provider.get_version(
+                            agent_to_view["id"], selected_version_id
+                        )
+                        if version_details and "version" in version_details:
+                            st.json(version_details["version"]["config"])
+                        else:
+                            st.error("Failed to load version configuration")
+
+                    # Show pagination info if there are more versions
+                    if total_versions > len(versions):
+                        st.info(f"Showing {len(versions)} of {total_versions} versions")
+
+            except Exception as e:
+                st.error(f"Error loading versions: {e}")
+                if verbose:
+                    st.exception(e)
 
     # Statistics tab
     with tabs[3]:

@@ -322,3 +322,103 @@ class MockDataProvider(DataProvider):
         """
         # Mock data provider is always healthy
         return True
+
+    def get_versions(self, agent_id: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get versions for an agent from mock data."""
+        try:
+            # Load versions from JSON file
+            data = self._load_json_file("versions.json")
+            all_versions = data.get("versions", [])
+
+            # Filter versions for this agent
+            agent_versions = [v for v in all_versions if v.get("agent_id") == agent_id]
+
+            # Sort by version number (descending - newest first)
+            agent_versions.sort(key=lambda v: v.get("number", 0), reverse=True)
+
+            # Apply pagination
+            total_items = len(agent_versions)
+            paginated_versions = agent_versions[offset : offset + limit]
+
+            # Get agent info
+            agent = self.get_agent(agent_id)
+            agent_info = None
+            if agent:
+                agent_info = {
+                    "id": agent.get("id"),
+                    "name": agent.get("name"),
+                    "type": agent.get("type"),
+                }
+
+            return {
+                "versions": [
+                    {
+                        "id": v["id"],
+                        "number": v["number"],
+                        "version_label": v.get("version_label"),
+                        "notes": v.get("notes"),
+                        "created_at": v["created_at"],
+                        "created_by": v["created_by"],
+                    }
+                    for v in paginated_versions
+                ],
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total_items": total_items,
+                },
+                "agent": agent_info,
+            }
+        except Exception as e:
+            if self.verbose:
+                print(f"Error loading versions: {e}")
+            return {
+                "versions": [],
+                "pagination": {"limit": limit, "offset": offset, "total_items": 0},
+                "agent": None,
+            }
+
+    def get_version(self, agent_id: str, version_id: str) -> dict[str, Any] | None:
+        """Get specific version details from mock data."""
+        try:
+            # Load versions from JSON file
+            data = self._load_json_file("versions.json")
+            all_versions = data.get("versions", [])
+
+            # Handle "latest" version request
+            if version_id == "latest":
+                agent_versions = [v for v in all_versions if v.get("agent_id") == agent_id]
+                if not agent_versions:
+                    return None
+                # Sort by version number and get the latest
+                agent_versions.sort(key=lambda v: v.get("number", 0), reverse=True)
+                version_data = agent_versions[0]
+            else:
+                # Find specific version
+                version_data = None
+                for v in all_versions:
+                    if v.get("id") == version_id and v.get("agent_id") == agent_id:
+                        version_data = v
+                        break
+
+                if not version_data:
+                    return None
+
+            # Get agent info
+            agent = self.get_agent(agent_id)
+            agent_info = None
+            if agent:
+                agent_info = {
+                    "id": agent.get("id"),
+                    "name": agent.get("name"),
+                    "type": agent.get("type"),
+                }
+
+            return {
+                "version": version_data,
+                "agent": agent_info,
+            }
+        except Exception as e:
+            if self.verbose:
+                print(f"Error loading version: {e}")
+            return None

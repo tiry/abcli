@@ -1,0 +1,46 @@
+{
+    "versions": [
+        {
+            "agent_id": "agent-1",
+            "id": "version-001",
+            "number": 1,
+            "version_label": "v1.0",
+            "notes": "Initial version",
+            "created_at": "2026-02-01T10:00:00Z",
+            "created_by": "user1",
+            "config": {
+                "llmModelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+                "systemPrompt": "You are a helpful assistant.",
+                "inferenceConfig": {"temperature": 0.7, "maxTokens": 1000},
+            },
+        },
+        {
+            "agent_id": "agent-1",
+            "id": "version-002",
+            "number": 2,
+            "version_label": "v1.1",
+            "notes": "Updated system prompt for better responses",
+            "created_at": "2026-02-10T14:30:00Z",
+            "created_by": "user1",
+            "config": {
+                "llmModelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+                "systemPrompt": "You are a helpful and friendly assistant.",
+                "inferenceConfig": {"temperature": 0.7, "maxTokens": 1000},
+            },
+        },
+        {
+            "agent_id": "agent-2",
+            "id": "version-003",
+            "number": 1,
+            "version_label": "v1.0",
+            "notes": "First version",
+            "created_at": "2026-02-05T09:00:00Z",
+            "created_by": "user2",
+            "config": {
+                "llmModelId": "anthropic.claude-3-opus-20240229-v1:0",
+                "systemPrompt": "You are an expert in data analysis.",
+                "inferenceConfig": {"temperature": 0.5, "maxTokens": 2000},
+            },
+        },
+    ]
+}

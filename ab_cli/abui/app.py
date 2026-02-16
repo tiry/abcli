@@ -100,6 +100,15 @@ st.markdown(
     .navigation-button {
         margin-bottom: 10px;
     }
+    .block {
+       margin-top: 0px;
+       margin-bottom: 0px;
+    }
+    .element-container {
+       margin-top: 0px;
+       margin-bottom: 0px;
+       padding:0px;
+    }
     </style>
     """,
     unsafe_allow_html=True,

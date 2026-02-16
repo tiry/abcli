@@ -60,16 +60,7 @@ ab agents list
 
 **Example Output:**
 
-```
-                            Agents (35 total)
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┓
-┃ ID                              ┃ Name         ┃ Type ┃ Status  ┃ Created   ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━┩
-│ 8f6c2178-4f0a-43fb-88d7-f3d8... │ Calculator   │ tool │ CREATED │ 2026-02-… │
-│ d9ce3525-0899-48b1-869f-ff9a... │ Document RAG │ rag  │ CREATED │ 2026-02-… │
-│ 10238ef8-1882-430c-8cbb-3498... │ Insurance    │ task │ CREATED │ 2026-02-… │
-└───────────────────────────────┴──────────────┴──────┴─────────┴───────────┘
-```
+<img src="doc/pics/CLI-List.png" width="800px"></img>
 
 See [USAGE.md](USAGE.md) for comprehensive command documentation.
 

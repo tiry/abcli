@@ -555,6 +555,120 @@ class CLIDataProvider(DataProvider):
             ]
             return fallback_guardrails
 
+    def get_versions(self, agent_id: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get list of versions for an agent.
+
+        Args:
+            agent_id: The ID of the agent
+            limit: Maximum number of versions to return
+            offset: Offset for pagination
+
+        Returns:
+            Dictionary containing versions, pagination, and agent info
+        """
+        try:
+            # Run CLI command to get versions
+            cmd = [
+                "versions",
+                "list",
+                agent_id,
+                "--limit",
+                str(limit),
+                "--offset",
+                str(offset),
+                "--format",
+                "json",
+            ]
+
+            result = self._run_command(cmd, use_cache=False)
+
+            # Extract versions and pagination
+            versions_list = result.get("versions", [])
+            pagination_info = result.get("pagination", {})
+            agent_info = result.get("agent", {})
+
+            return {
+                "versions": [
+                    {
+                        "id": str(v.get("id")),
+                        "number": v.get("number"),
+                        "version_label": v.get("version_label"),
+                        "notes": v.get("notes"),
+                        "created_at": v.get("created_at"),
+                        "created_by": v.get("created_by"),
+                    }
+                    for v in versions_list
+                ],
+                "pagination": {
+                    "limit": pagination_info.get("limit", limit),
+                    "offset": pagination_info.get("offset", offset),
+                    "total_items": pagination_info.get("total_items", len(versions_list)),
+                },
+                "agent": {
+                    "id": str(agent_info.get("id")),
+                    "name": agent_info.get("name"),
+                    "type": agent_info.get("type"),
+                }
+                if agent_info
+                else None,
+            }
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error fetching versions: {e}")
+            return {
+                "versions": [],
+                "pagination": {"limit": limit, "offset": offset, "total_items": 0},
+                "agent": None,
+            }
+
+    def get_version(self, agent_id: str, version_id: str) -> dict[str, Any] | None:
+        """Get details of a specific version.
+
+        Args:
+            agent_id: The ID of the agent
+            version_id: The ID of the version (or "latest")
+
+        Returns:
+            Dictionary containing version details and agent info
+        """
+        try:
+            # Run CLI command to get version
+            cmd = ["versions", "get", agent_id, version_id, "--format", "json"]
+
+            result = self._run_command(cmd, use_cache=False)
+
+            # Extract version and agent info
+            version_info = result.get("version", {})
+            agent_info = result.get("agent", {})
+
+            if not version_info:
+                return None
+
+            return {
+                "version": {
+                    "id": str(version_info.get("id")),
+                    "number": version_info.get("number"),
+                    "version_label": version_info.get("version_label"),
+                    "notes": version_info.get("notes"),
+                    "created_at": version_info.get("created_at"),
+                    "created_by": version_info.get("created_by"),
+                    "config": version_info.get("config", {}),
+                },
+                "agent": {
+                    "id": str(agent_info.get("id")),
+                    "name": agent_info.get("name"),
+                    "type": agent_info.get("type"),
+                }
+                if agent_info
+                else None,
+            }
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error fetching version: {e}")
+            return None
+
     def health_check(self) -> bool:
         """Check if the data provider is healthy.
 
