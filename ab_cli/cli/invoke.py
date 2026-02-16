@@ -2,6 +2,7 @@
 
 import json
 import sys
+import traceback
 
 import click
 import yaml
@@ -298,6 +299,10 @@ def task(
 @click.option(
     "--guardrails", multiple=True, help="Apply guardrails (can be specified multiple times)"
 )
+@click.option("--stream", "-s", is_flag=True, help="Enable streaming responses")
+@click.option(
+    "--verbose", "-v", is_flag=True, help="Show verbose output including raw API response"
+)
 @click.pass_context
 def interactive(
     ctx: click.Context,
@@ -307,8 +312,14 @@ def interactive(
     hybrid_search: bool,
     deep_search: bool,
     guardrails: list[str],
+    stream: bool,
+    verbose: bool,
 ) -> None:
     """Start interactive chat session (REPL)."""
+    # Combine global and command-level verbose (hierarchical)
+    global_verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+    verbose = global_verbose or verbose
+
     config_path = ctx.obj.get("config_path") if ctx.obj else None
     messages: list[ChatMessage] = []  # Chat history
 
@@ -316,6 +327,22 @@ def interactive(
         with get_client(config_path) as client:
             # Verify agent exists before starting session
             agent = client.get_agent(agent_id, version_id)
+
+            # Session initialization logging (verbose mode)
+            if verbose:
+                console.print("\n[dim]═══ Interactive Session Debug Info ═══[/dim]")
+                console.print(f"[dim]Agent ID: {agent_id}[/dim]")
+                console.print(f"[dim]Version: {version_id}[/dim]")
+                console.print(f"[dim]Agent Name: {agent.agent.name}[/dim]")
+                if hxql_query:
+                    console.print(f"[dim]HXQL Query: {hxql_query}[/dim]")
+                if hybrid_search:
+                    console.print("[dim]Hybrid Search: Enabled[/dim]")
+                if deep_search:
+                    console.print("[dim]Deep Search: Enabled[/dim]")
+                if guardrails:
+                    console.print(f"[dim]Guardrails: {', '.join(guardrails)}[/dim]")
+                console.print("[dim]═══════════════════════════════════[/dim]\n")
 
             # Setup interactive session
             console.print(
@@ -354,38 +381,165 @@ def interactive(
                         enableDeepSearch=deep_search,
                         guardrails=list(guardrails) if guardrails else None,
                     )
-                    console.print("[bold cyan]Agent[/bold cyan]", end=" ")
 
-                    # Stream response
+                    # Request logging (verbose mode)
+                    if verbose:
+                        console.print("\n[dim]─── Sending Request ───[/dim]")
+                        console.print(f"[dim]Message count: {len(messages)}[/dim]")
+                        preview = user_input[:50] + "..." if len(user_input) > 50 else user_input
+                        console.print(f"[dim]Latest message: {preview}[/dim]")
+                        console.print("[dim]Full request payload:[/dim]")
+                        console.print_json(request.model_dump_json())
+
+                        # API call details
+                        console.print("\n[dim]─── API Call Details ───[/dim]")
+                        api_mode = "streaming" if stream else "non-streaming"
+                        endpoint_path = "/stream" if stream else ""
+                        console.print(f"[dim]Method: POST ({api_mode})[/dim]")
+                        console.print(
+                            f"[dim]Endpoint: {client.settings.api_endpoint}/agents/{agent_id}/versions/{version_id}/invoke{endpoint_path}[/dim]"
+                        )
+                        console.print(f"[dim]Environment: {client.settings.environment_id}[/dim]")
+                        if hasattr(client, "_auth_client") and client._auth_client:
+                            # Show token preview if available
+                            try:
+                                token = client._auth_client.get_token()
+                                token_preview = (
+                                    f"{token[:20]}...{token[-10:]}" if len(token) > 30 else token
+                                )
+                                console.print(f"[dim]Auth token: {token_preview}[/dim]")
+                            except Exception:
+                                console.print("[dim]Auth token: <not available>[/dim]")
+                        console.print()
+
+                    console.print("[bold cyan]Agent[/bold cyan] ", end="")
+
                     full_response = ""
-                    try:
-                        for event in client.invoke_agent_stream(agent_id, version_id, request):
-                            if event.event == "text" and event.data:
-                                console.print(event.data, end="")
-                                full_response += event.data
-                            elif event.event == "error" and event.data:
-                                console.print(f"\n[red]Error: {event.data}[/red]")
-                                break
-                    except KeyboardInterrupt:
-                        console.print("\n[yellow]Response interrupted[/yellow]")
-                        continue
 
-                    console.print()  # New line after response
+                    if stream:
+                        # Streaming mode
+                        if not verbose:
+                            console.print("[dim](thinking...)[/dim]", end="")
+                            sys.stdout.flush()
+
+                        event_count = 0
+                        try:
+                            for event in client.invoke_agent_stream(agent_id, version_id, request):
+                                event_count += 1
+
+                                # Clear "thinking..." on first event (non-verbose mode)
+                                if event_count == 1 and not verbose:
+                                    console.print("\r[bold cyan]Agent[/bold cyan] ", end="")
+
+                                # Event logging (verbose mode)
+                                if verbose:
+                                    data_preview = ""
+                                    if event.data:
+                                        preview_len = min(len(event.data), 50)
+                                        data_preview = f": {event.data[:preview_len]}"
+                                        if len(event.data) > preview_len:
+                                            data_preview += "..."
+                                    data_len = len(event.data) if event.data else 0
+                                    console.print(
+                                        f"\n[dim]Event #{event_count}: {event.event} "
+                                        f"(length: {data_len}){data_preview}[/dim]"
+                                    )
+
+                                if event.event == "text" and event.data:
+                                    console.print(event.data, end="")
+                                    full_response += event.data
+                                elif event.event == "error" and event.data:
+                                    console.print(f"\n[red]Error: {event.data}[/red]")
+                                    if verbose:
+                                        console.print(
+                                            f"[dim]Error received after {event_count} events[/dim]"
+                                        )
+                                    break
+                                else:
+                                    # Log unhandled event types
+                                    if verbose:
+                                        console.print(
+                                            f"[yellow]Unhandled event type: {event.event}[/yellow]"
+                                        )
+
+                        except KeyboardInterrupt:
+                            console.print("\n[yellow]Response interrupted[/yellow]")
+                            continue
+
+                        console.print()  # New line after response
+
+                        # Response summary (verbose mode)
+                        if verbose:
+                            console.print("[dim]─── Response Complete ───[/dim]")
+                            console.print(f"[dim]Total events received: {event_count}[/dim]")
+                            console.print(
+                                f"[dim]Response length: {len(full_response)} characters[/dim]"
+                            )
+                            console.print(
+                                f"[dim]Messages in history: {len(messages) + (1 if full_response else 0)}[/dim]"
+                            )
+
+                    else:
+                        # Non-streaming mode (default)
+                        try:
+                            response = client.invoke_agent(agent_id, version_id, request)
+                            full_response = response.response or ""
+                            if full_response:
+                                console.print(full_response)
+
+                            # Response details (verbose mode)
+                            if verbose:
+                                console.print("\n[dim]─── Response Complete ───[/dim]")
+                                console.print(
+                                    f"[dim]Response length: {len(full_response)} characters[/dim]"
+                                )
+                                console.print(
+                                    f"[dim]Messages in history: {len(messages) + (1 if full_response else 0)}[/dim]"
+                                )
+                                if response.usage:
+                                    console.print("[dim]Token usage:[/dim]")
+                                    for key, value in response.usage.items():
+                                        console.print(f"  [dim]{key}: {value}[/dim]")
+                                console.print("\n[dim]Full API response:[/dim]")
+                                console.print_json(response.model_dump_json())
+
+                        except KeyboardInterrupt:
+                            console.print("\n[yellow]Response interrupted[/yellow]")
+                            continue
+
+                    # Detect empty responses
+                    if not full_response:
+                        if verbose:
+                            console.print("[yellow]⚠ Warning: Empty response received[/yellow]")
+                        else:
+                            console.print("[yellow](No response)[/yellow]")
 
                     # Add response to history
                     if full_response:
                         messages.append(ChatMessage(role="assistant", content=full_response))
 
                 except APIError as e:
-                    error_console.print(f"\n[red]Error:[/red] {e}")
+                    error_console.print(f"\n[red]API Error:[/red] {e}")
+                    if verbose:
+                        error_console.print("\n[dim]Full traceback:[/dim]")
+                        error_console.print(traceback.format_exc())
                 except Exception as e:
                     error_console.print(f"\n[red]Unexpected error:[/red] {e}")
+                    if verbose:
+                        error_console.print("\n[dim]Full traceback:[/dim]")
+                        error_console.print(traceback.format_exc())
 
     except NotFoundError:
         error_console.print(f"[red]Agent not found:[/red] {agent_id}")
+        if verbose:
+            error_console.print("\n[dim]Full traceback:[/dim]")
+            error_console.print(traceback.format_exc())
         sys.exit(1)
     except APIError as e:
-        error_console.print(f"[red]Error:[/red] {e}")
+        error_console.print(f"[red]API Error:[/red] {e}")
+        if verbose:
+            error_console.print("\n[dim]Full traceback:[/dim]")
+            error_console.print(traceback.format_exc())
         sys.exit(1)
     except KeyboardInterrupt:
         console.print("\n[dim]Session interrupted.[/dim]")

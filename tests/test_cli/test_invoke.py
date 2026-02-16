@@ -516,10 +516,10 @@ class TestInvokeInteractive:
         # 4. "exit" - exit command
         input_values = ["Hello", "clear", "Tell me a joke", "exit"]
 
-        # Run the interactive command with mocked input
+        # Run the interactive command with mocked input (with --stream flag since test expects streaming)
         with patch("rich.prompt.Prompt.ask", side_effect=input_values):
             with patch("ab_cli.cli.invoke.console"):  # Silence console output
-                result = self.invoke_command(runner, ["interactive", "agent-123"], mock_client=mock_get_client)
+                result = self.invoke_command(runner, ["interactive", "agent-123", "--stream"], mock_client=mock_get_client)
 
         # Verify command succeeded
         assert result.exit_code == 0
