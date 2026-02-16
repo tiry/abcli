@@ -93,7 +93,8 @@ def show_chat_agent_interface(agent: dict[str, Any]) -> None:
         data_provider = get_data_provider(config)
 
         try:
-            response = data_provider.invoke_agent(agent_id, user_message)
+            agent_type = agent.get("type", "chat")
+            response = data_provider.invoke_agent(agent_id, user_message, agent_type=agent_type)
 
             # Add agent response to chat history
             chat_history.append({"role": "assistant", "content": response})
@@ -109,48 +110,81 @@ def show_task_agent_interface(agent: dict[str, Any]) -> None:
     agent_id = agent["id"]
     st.subheader(f"Task Agent: {agent['name']}")
 
-    # Check if agent has an inputSchema
+    # Check if agent has full configuration loaded
     agent_config = agent.get("agent_config", {})
+
+    # If agent_config is missing or empty, load full agent details
+    if not agent_config:
+        config = st.session_state.get("config", {})
+        data_provider = get_data_provider(config)
+
+        try:
+            with st.spinner("Loading agent configuration..."):
+                full_agent = data_provider.get_agent(agent_id)
+                if full_agent and "agent_config" in full_agent:
+                    # Update session state with full agent details
+                    st.session_state.selected_agent = full_agent
+                    agent = full_agent
+                    agent_config = full_agent.get("agent_config", {})
+                else:
+                    st.error("Failed to load agent configuration")
+                    return
+        except Exception as e:
+            st.error(f"Error loading agent details: {e}")
+            return
+
     input_schema = agent_config.get("inputSchema", {})
 
     if not input_schema:
         st.warning("This task agent doesn't have an input schema defined.")
         return
 
+    # Initialize or get chat history
+    if agent_id not in st.session_state.chat_history:
+        st.session_state.chat_history[agent_id] = []
+
+    chat_history = st.session_state.chat_history[agent_id]
+
+    # Display chat history
+    display_chat_history(chat_history)
+
     # Display task input editor
     st.markdown("### Task Input")
-    task_input = json_task_editor(input_schema)
+    task_input, has_errors = json_task_editor(input_schema)
 
-    if st.button("Submit Task"):
-        if task_input:
-            # Add task to chat history
-            if agent_id not in st.session_state.chat_history:
-                st.session_state.chat_history[agent_id] = []
+    # Disable button if there are validation errors
+    if st.button("Submit Task", disabled=has_errors) and task_input:
+        # Add task to chat history
+        if agent_id not in st.session_state.chat_history:
+            st.session_state.chat_history[agent_id] = []
 
-            # Add formatted input as user message
-            st.session_state.chat_history[agent_id].append(
-                {"role": "user", "content": json.dumps(task_input, indent=2)}
-            )
+        # Add formatted input as user message
+        st.session_state.chat_history[agent_id].append(
+            {"role": "user", "content": json.dumps(task_input, indent=2)}
+        )
 
-            # Simulate task execution (in a real app, call the API)
-            config = st.session_state.get("config", {})
-            data_provider = get_data_provider(config)
+        # Simulate task execution (in a real app, call the API)
+        config = st.session_state.get("config", {})
+        data_provider = get_data_provider(config)
 
-            try:
-                # Use the standard invoke_agent method for task agents too
-                response = data_provider.invoke_agent(agent_id, json.dumps(task_input))
+        try:
+            # Use the standard invoke_agent method for task agents with agent_type
+            agent_type = agent.get("type", "task")
 
-                # Add response to chat history
-                st.session_state.chat_history[agent_id].append(
-                    {"role": "assistant", "content": response}
+            with st.spinner("Executing task..."):
+                response = data_provider.invoke_agent(
+                    agent_id, json.dumps(task_input), agent_type=agent_type
                 )
 
-                # Force UI refresh
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
-        else:
-            st.error("Please fix the validation errors before submitting.")
+            # Add response to chat history
+            st.session_state.chat_history[agent_id].append(
+                {"role": "assistant", "content": response}
+            )
+
+            # Force UI refresh
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
 
 
 def display_chat_history(chat_history: list[dict[str, str]]) -> None:
@@ -178,14 +212,14 @@ def display_chat_history(chat_history: list[dict[str, str]]) -> None:
                 st.write(content)
 
 
-def json_task_editor(input_schema: dict[str, Any]) -> dict[str, Any] | None:
+def json_task_editor(input_schema: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
     """Create a JSON editor with schema validation.
 
     Args:
         input_schema: JSON schema for task input validation.
 
     Returns:
-        Validated JSON object or None if validation fails.
+        Tuple of (validated JSON object or None, has_errors boolean)
     """
     # Create default JSON object based on schema
     default_json: dict[str, Any] = {}
@@ -217,7 +251,7 @@ def json_task_editor(input_schema: dict[str, Any]) -> dict[str, Any] | None:
         task_input = json.loads(json_str)
     except json.JSONDecodeError as e:
         st.error(f"Invalid JSON format: {str(e)}")
-        return None
+        return None, True  # has errors
 
     # Validate required fields
     validation_errors = []
@@ -229,9 +263,9 @@ def json_task_editor(input_schema: dict[str, Any]) -> dict[str, Any] | None:
     if validation_errors:
         for error in validation_errors:
             st.error(error)
-        return None
+        return None, True  # has errors
 
-    return cast(dict[str, Any], task_input)
+    return cast(dict[str, Any], task_input), False  # no errors
 
 
 def display_agent_tools(agent: dict[str, Any]) -> None:

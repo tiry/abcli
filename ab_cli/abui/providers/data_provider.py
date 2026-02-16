@@ -33,8 +33,17 @@ class DataProvider(ABC):
         pass
 
     @abstractmethod
-    def invoke_agent(self, agent_id: str, message: str) -> str:
-        """Invoke an agent with a message."""
+    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> str:
+        """Invoke an agent with a message.
+
+        Args:
+            agent_id: The ID of the agent to invoke
+            message: The message to send (for chat) or task data JSON (for task)
+            agent_type: Type of agent ("chat", "rag", "tool", "task")
+
+        Returns:
+            Agent response as text
+        """
         pass
 
     @abstractmethod

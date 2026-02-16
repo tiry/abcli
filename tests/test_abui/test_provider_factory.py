@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 import pytest
+import streamlit as st
 
 from ab_cli.abui.providers.cli_data_provider import CLIDataProvider
 from ab_cli.abui.providers.mock_data_provider import MockDataProvider
@@ -44,6 +45,10 @@ def create_dummy_config(provider_type="cli"):
 
 def test_get_provider_cli():
     """Test that get_data_provider returns a CLIDataProvider when configured for CLI."""
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
+    
     # Create a dummy config with CLI provider
     config = create_dummy_config("cli")
     
@@ -58,6 +63,10 @@ def test_get_provider_cli():
 
 def test_get_provider_mock():
     """Test that get_data_provider returns a MockDataProvider when configured for mock."""
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
+    
     # Create a dummy config with mock provider
     config = create_dummy_config("mock")
     
@@ -72,6 +81,10 @@ def test_get_provider_mock():
 
 def test_get_provider_env_override():
     """Test that environment variable overrides the configuration."""
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
+    
     # Create a dummy config with CLI provider
     config = create_dummy_config("cli")
     
@@ -87,6 +100,10 @@ def test_get_provider_env_override():
 
 def test_provider_basic_methods():
     """Test that the providers implement the expected methods."""
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
+    
     # Create a mock provider
     config = create_dummy_config("mock")
     provider = get_data_provider(config)

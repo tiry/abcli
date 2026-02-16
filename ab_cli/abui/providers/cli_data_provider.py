@@ -388,12 +388,13 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in delete_agent: {e}")
             return False
 
-    def invoke_agent(self, agent_id: str, message: str) -> str:
+    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> str:
         """Invoke an agent with a message.
 
         Args:
             agent_id: The ID of the agent to invoke
-            message: The message to send to the agent
+            message: The message to send (for chat) or task data JSON (for task)
+            agent_type: Type of agent ("chat", "rag", "tool", "task")
 
         Returns:
             Agent response as text
@@ -402,16 +403,36 @@ class CLIDataProvider(DataProvider):
             # Quote the message to handle special characters
             quoted_message = shlex.quote(message)
 
-            # Run CLI command to invoke agent
-            cmd = ["invoke", "chat", agent_id, "--message", quoted_message, "--format", "json"]
+            # Build command based on agent type
+            if agent_type == "task":
+                # Use invoke task with --task parameter
+                cmd = ["invoke", "task", agent_id, "--task", quoted_message, "--format", "json"]
+            else:
+                # Use invoke chat with --message parameter (for chat, rag, tool)
+                cmd = ["invoke", "chat", agent_id, "--message", quoted_message, "--format", "json"]
 
             result = self._run_command(cmd, use_cache=False)
 
-            # Extract response from result
-            if "response" in result:
-                return cast(str, result["response"])
+            if self.verbose:
+                print(f"[DEBUG] invoke_agent result keys: {list(result.keys())}")
+                if "response" in result:
+                    print(f"[DEBUG] response field type: {type(result['response'])}")
 
-            # Try to extract response from output
+            # Extract response from result - check "response" field first
+            if "response" in result:
+                response_value = result["response"]
+                # Ensure we return a string
+                if isinstance(response_value, str):
+                    if self.verbose:
+                        print(f"[DEBUG] Returning response text (length: {len(response_value)})")
+                    return response_value
+                else:
+                    # If it's not a string, convert it
+                    if self.verbose:
+                        print(f"[DEBUG] Converting response from {type(response_value)} to string")
+                    return str(response_value)
+
+            # Try to extract response from output array
             if "output" in result:
                 output = result["output"]
 
@@ -430,14 +451,23 @@ class CLIDataProvider(DataProvider):
                                     ):
                                         texts.append(content_item["text"])
                                 if texts:
-                                    return " ".join(texts)
+                                    response_text = " ".join(texts)
+                                    if self.verbose:
+                                        print(
+                                            f"[DEBUG] Extracted from output array (length: {len(response_text)})"
+                                        )
+                                    return response_text
 
             # Try to extract text from nested structures
             extracted_text = extract_text_from_object(result)
             if extracted_text and extracted_text != "No response text found":
+                if self.verbose:
+                    print("[DEBUG] Extracted via extract_text_from_object")
                 return extracted_text
 
-            # Fallback to raw response
+            # Fallback - log the issue
+            if self.verbose:
+                print("[DEBUG] No response extracted, returning error message")
             return f"No response found in agent output: {result}"
 
         except Exception as e:

@@ -13,12 +13,18 @@ from ab_cli.abui.providers.mock_data_provider import MockDataProvider
 def get_data_provider(config: Any) -> DataProvider:
     """Get the appropriate data provider based on configuration.
 
+    Provider instance is cached in session state to preserve cache across reruns.
+
     Args:
         config: Application configuration
 
     Returns:
         DataProvider instance
     """
+    # Check if provider already exists in session state
+    if "data_provider" in st.session_state:
+        return st.session_state.data_provider
+
     # Default to CLI provider if not specified
     provider_type = "cli"
 
@@ -58,12 +64,18 @@ def get_data_provider(config: Any) -> DataProvider:
     if verbose:
         print(f"Data provider type from config: {provider_type}")
 
+    # Create provider instance
+    provider: DataProvider
     if provider_type.lower() == "mock":
         if verbose:
             print("Using Mock data provider")
-        return MockDataProvider(config)
+        provider = MockDataProvider(config)
     else:
         # Default to CLI provider
         if verbose:
             print("Using CLI data provider")
-        return CLIDataProvider(config, verbose)
+        provider = CLIDataProvider(config, verbose)
+
+    # Cache provider instance in session state
+    st.session_state.data_provider = provider
+    return provider

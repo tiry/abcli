@@ -88,17 +88,13 @@ class TestInvokeErrors:
 
     def test_task_agent_not_found(self, runner, mock_client, tmp_path):
         """Test task command with agent not found error."""
-        # Create temporary input file
-        input_file = tmp_path / "input.json"
-        input_file.write_text('{"query": "test"}')
-
         # Setup exception
         exception = NotFoundError("Agent not found", "agent-123")
 
-        # Run command
+        # Run command with inline task data
         result = self.invoke_command(
             runner,
-            ["task", "agent-123", "--input", str(input_file)],
+            ["task", "agent-123", "--task", '{"query": "test"}'],
             mock_client=mock_client,
             exception=exception
         )
@@ -110,17 +106,13 @@ class TestInvokeErrors:
 
     def test_task_api_error(self, runner, mock_client, tmp_path):
         """Test task command with generic API error."""
-        # Create temporary input file
-        input_file = tmp_path / "input.json"
-        input_file.write_text('{"query": "test"}')
-
         # Set mock to raise APIError
         mock_client.invoke_task.side_effect = APIError("API request failed: Invalid input format")
 
-        # Run command
+        # Run command with inline task data
         result = self.invoke_command(
             runner,
-            ["task", "agent-123", "--input", str(input_file)],
+            ["task", "agent-123", "--task", '{"query": "test"}'],
             mock_client=mock_client
         )
 
@@ -178,10 +170,6 @@ class TestInvokeErrors:
 
     def test_task_stream_error_event(self, runner, mock_client, tmp_path):
         """Test task stream with error event."""
-        # Create temporary input file
-        input_file = tmp_path / "input.json"
-        input_file.write_text('{"query": "test"}')
-
         # Mock stream events with an error event
         mock_client.invoke_task_stream.return_value = [
             StreamEvent(event="text", data="Starting task"),
@@ -194,10 +182,10 @@ class TestInvokeErrors:
             mock_live_instance = MagicMock()
             mock_live.return_value.__enter__.return_value = mock_live_instance
 
-            # Run command with stream
+            # Run command with stream and inline task data
             result = self.invoke_command(
                 runner,
-                ["task", "agent-123", "--input", str(input_file), "--stream"],
+                ["task", "agent-123", "--task", '{"query": "test"}', "--stream"],
                 mock_client=mock_client
             )
 
