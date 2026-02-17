@@ -49,38 +49,72 @@ def show_agents_page() -> None:
 
 
 def show_agent_list() -> None:
-    """Display a list of available agents."""
-    # Add refresh button and view toggle in the same row
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        if st.button("Refresh Agent List"):
-            # Clear the cache when refreshing
-            clear_cache()
-            st.success("Cache cleared and agent list refreshed")
-
-    with col2:
-        # Use segmented_control with icons for view mode toggle
-        # Icons: 📋 for list/table and 🗂️ for cards
-        view_mode = st.segmented_control(
-            label="View Mode:", options=["🗂️ Cards", "📋 Table"], key="agent_view_mode"
-        )
+    """Display a paginated list of available agents."""
+    # Initialize pagination state - use 50 items to match CLI default
+    if "agents_page" not in st.session_state:
+        st.session_state.agents_page = 1
+    if "agents_page_size" not in st.session_state:
+        st.session_state.agents_page_size = 50
 
     # Get data provider from session state
     provider = st.session_state.data_provider
 
-    # Use data provider to get the list of agents
+    # Fetch paginated data first (so we have the info for top row)
     try:
-        agents = provider.get_agents()
+        offset = (st.session_state.agents_page - 1) * st.session_state.agents_page_size
+        result = provider.get_agents_paginated(
+            limit=st.session_state.agents_page_size, offset=offset
+        )
 
-        if not agents:
+        # Calculate pagination info for display
+        total_pages = (
+            (result.total_count + result.limit - 1) // result.limit if result.total_count > 0 else 1
+        )
+        current_page = st.session_state.agents_page
+        start = result.offset + 1
+        end = min(result.offset + result.limit, result.total_count)
+
+        # Controls row: refresh, view mode, pagination info and navigation
+        col1, col2, col3, col4 = st.columns([1, 2, 2, 1])
+
+        with col1:
+            if st.button("Refresh Agent List"):
+                # Clear the cache when refreshing
+                clear_cache()
+                st.success("Cache cleared and agent list refreshed")
+
+        with col2:
+            # Use segmented_control with icons for view mode toggle
+            view_mode = st.segmented_control(
+                label="View Mode:", options=["🗂️ Cards", "📋 Table"], key="agent_view_mode"
+            )
+
+        with col3:
+            st.caption(f"Showing {start}-{end} of {result.total_count} agents")
+
+        with col4:
+            # Simple page number input with -/+ buttons
+            page_input = st.number_input(
+                f"Page (1-{total_pages})",
+                min_value=1,
+                max_value=total_pages,
+                value=current_page,
+                key="page_input",
+                label_visibility="visible",
+            )
+            if page_input != current_page:
+                st.session_state.agents_page = page_input
+                st.rerun()
+
+        if not result.agents:
             st.info("No agents found. Create a new agent to get started.")
             return
 
         # Display agents based on selected view mode
         if view_mode is not None and "Cards" in view_mode:
-            display_agents_as_cards(agents)
+            display_agents_as_cards(result.agents)
         else:
-            display_agents_as_table(agents)
+            display_agents_as_table(result.agents)
 
     except Exception as e:
         st.error(f"Error loading agents: {e}")
@@ -102,235 +136,112 @@ def display_agents_as_cards(agents: list[dict[str, Any]]) -> None:
 
 
 def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
-    """Display agents in a table format with correct alternating row colors."""
+    """Display agents in a clean dataframe table with action buttons."""
+    import pandas as pd
 
-    # 1. Improved CSS to handle the row wrapper
+    # Add CSS to reduce padding and make table more compact
     st.markdown(
         """
     <style>
-    .table-header {
-        font-weight: bold;
-        background-color: #e6e6e6;
-        padding: 10px;
-        border-radius: 5px 5px 0px 0px;
-        margin-bottom: 5px;
+    /* Reduce dataframe container padding */
+    [data-testid="stDataFrame"] {
+        padding: 0 !important;
+        margin: 0 !important;
     }
-    /* Style for the custom row wrapper */
-    .agent-row-container {
-        padding: 5px 10px;
-        margin-bottom: 4px;
-        border-radius: 4px;
-        border: 1px solid #f0f2f6;
-    }
-    .even-bg { background-color: #f8f9fa; }
-    .odd-bg { background-color: #ffffff; }
-    /* Make buttons look better inside the table */
-    .stButton > button {
-        padding: 2px 8px !important;
+    /* Compact dataframe height */
+    [data-testid="stDataFrame"] > div {
+        height: 400px !important;
+        max-height: 400px !important;
     }
     </style>
     """,
         unsafe_allow_html=True,
     )
 
-    # Header
-    st.markdown(
-        """
-    <div class="table-header">
-        <div style="display: grid; grid-template-columns: 3fr 3fr 1fr 1fr 2fr; gap: 10px;">
-            <div>ID</div>
-            <div>Name</div>
-            <div>Type</div>
-            <div>Status</div>
-            <div style="text-align: center;">Actions</div>
-        </div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    # 2. Iterating through agents
-    for i, agent in enumerate(agents):
+    # Prepare data for table
+    table_data = []
+    for agent in agents:
         agent_id = agent.get("id", "")
-        agent_name = agent.get("name", "Unknown")
-        agent_type = agent.get("type", "")
-        agent_status = agent.get("status", "")
+        short_id = agent_id[:10] + "..." if len(agent_id) > 10 else agent_id
 
-        # Determine background color based on index
-        bg_color = "#f8f9fa" if i % 2 == 0 else "#ffffff"
+        table_data.append(
+            {
+                "ID": short_id,
+                "Name": agent.get("name", "Unknown"),
+                "Type": agent.get("type", ""),
+                "Status": agent.get("status", ""),
+                "_full_id": agent_id,  # Hidden for tooltip
+            }
+        )
 
-        # 3. Use a container to group the row elements
-        with st.container():
-            # Inject the background color as a wrapping div using a 'sandwich'
-            st.markdown(
-                f'<div style="background-color: {bg_color}; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 4px;">',
-                unsafe_allow_html=True,
-            )
+    df = pd.DataFrame(table_data)
 
-            # Draw the columns
-            id_col, name_col, type_col, status_col, actions_col = st.columns([3, 3, 1, 1, 2])
-
-            with id_col:
-                st.markdown(f"<code>{agent_id}</code>", unsafe_allow_html=True)
-
-            with name_col:
-                st.write(agent_name)
-
-            with type_col:
-                st.write(agent_type)
-
-            with status_col:
-                # Optional: add color to status
-                color = "green" if agent_status == "CREATED" else "gray"
-                st.markdown(
-                    f"<span style='color:{color}; font-weight:bold;'>{agent_status}</span>",
-                    unsafe_allow_html=True,
-                )
-
-            with actions_col:
-                btn_col1, btn_col2, btn_col3 = st.columns(3)
-                with btn_col1:
-                    if st.button("👁️", key=f"view_{i}", help="View details"):
-                        st.session_state.agent_to_view = agent
-                        st.session_state.nav_intent = "AgentDetails"
-                        st.rerun()
-                with btn_col2:
-                    if st.button("✏️", key=f"edit_{i}", help="Edit agent"):
-                        st.session_state.agent_to_edit = agent
-                        st.session_state.nav_intent = "EditAgent"
-                        st.rerun()
-                with btn_col3:
-                    if st.button("💬", key=f"chat_{i}", help="Chat with agent"):
-                        st.session_state.selected_agent = agent
-                        st.session_state.nav_intent = "Chat"
-                        st.rerun()
-
-            # Close the wrapping div
-            st.markdown("</div>", unsafe_allow_html=True)
-
-
-def _display_agents_as_table(agents: list[dict[str, Any]]) -> None:
-    """Display agents in a table format with inline action buttons using columns.
-
-    Args:
-        agents: List of agent dictionaries
-    """
-    # Define CSS for styling the table and buttons
-    st.markdown(
-        """
-    <style>
-    /* Table header styling */
-    .table-header {
-        font-weight: bold;
-        background-color: #e6e6e6;
-        padding: 10px;
-        border-radius: 5px 5px 0px 0px;
-        margin-bottom: 5px;
-    }
-    /* Make buttons more compact */
-    .stButton > button {
-        padding: 0.2rem 0.6rem;
-        line-height: 1;
-        height: auto;
-    }
-    /* This targets the custom div we will wrap around our columns */
-    .agent-row {
-        padding: 8px;
-        margin-bottom: 2px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-    }
-    .even-row { background-color: #f8f9fa; }
-    .odd-row { background-color: #ffffff; }
-    </style>
-    """,
-        unsafe_allow_html=True,
+    # Display dataframe with row selection
+    event = st.dataframe(
+        df[["ID", "Name", "Type", "Status"]],
+        width="stretch",
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        column_config={
+            "ID": st.column_config.TextColumn("ID", help="Agent ID", width="medium"),
+            "Name": st.column_config.TextColumn("Name", width="medium"),
+            "Type": st.column_config.TextColumn("Type", width="small"),
+            "Status": st.column_config.TextColumn("Status", width="small"),
+        },
     )
 
-    # Create the table header with columns - updated order and column widths
-    # ID first, then Name, then narrower Type and Status columns, then Actions
-    st.markdown(
-        """
-    <div class="table-header">
-        <div style="display: grid; grid-template-columns: 3fr 3fr 1fr 1fr 2fr; gap: 10px;">
-            <div>ID</div>
-            <div>Name</div>
-            <div>Type</div>
-            <div>Status</div>
-            <div style="text-align: center;">Actions</div>
-        </div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
+    # Determine if a row is selected
+    has_selection = bool(event.selection.rows)  # type: ignore[attr-defined]
+    selected_agent = None
+    selected_display = "None"
 
-    # Create a row for each agent
-    for i, agent in enumerate(agents):
-        # Extract agent details
-        agent_id = agent.get("id", "")
-        agent_name = agent.get("name", "Unknown")
-        agent_type = agent.get("type", "")
-        agent_status = agent.get("status", "")
+    if has_selection:
+        selected_idx = event.selection.rows[0]  # type: ignore[attr-defined]
+        selected_agent = agents[selected_idx]
+        selected_display = f"{selected_agent.get('name')} ({table_data[selected_idx]['ID']})"
 
-        # Determine the background color based on the row index
-        bg_color = "#f8f9fa" if i % 2 == 0 else "#ffffff"
+    # Always show action buttons, but disabled when no selection
+    st.markdown("---")
+    st.markdown(f"**Selected:** {selected_display}")
 
-        with st.container():
-            # Use opening markdown tag with inline style for background color
-            st.markdown(
-                f'<div style="background-color: {bg_color}; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 5px;">',
-                unsafe_allow_html=True,
-            )
+    # Show action buttons in columns (always visible, disabled when no selection)
+    col1, col2, col3, col4 = st.columns(4)
 
-            # Create columns for the content
-            id_col, name_col, type_col, status_col, actions_col = st.columns([3, 3, 1, 1, 2])
+    with col1:
+        if (
+            st.button("📋 Copy Full ID", use_container_width=True, disabled=not has_selection)
+            and selected_agent
+        ):
+            full_id = selected_agent.get("id", "")
+            st.toast(f"ID: {full_id}", icon="📋")
 
-            # Display agent details in each column
-            with id_col:
-                st.write(agent_id)
+    with col2:
+        if (
+            st.button("👁️ View Details", use_container_width=True, disabled=not has_selection)
+            and selected_agent
+        ):
+            st.session_state.agent_to_view = selected_agent
+            st.session_state.nav_intent = "AgentDetails"
+            st.rerun()
 
-            with name_col:
-                st.write(agent_name)
+    with col3:
+        if (
+            st.button("✏️ Edit Agent", use_container_width=True, disabled=not has_selection)
+            and selected_agent
+        ):
+            st.session_state.agent_to_edit = selected_agent
+            st.session_state.nav_intent = "EditAgent"
+            st.rerun()
 
-            with type_col:
-                st.write(agent_type)
-
-            with status_col:
-                st.write(agent_status)
-
-            # Display action buttons in the actions column
-            with actions_col:
-                # Create a horizontal layout for the buttons
-                btn_col1, btn_col2, btn_col3 = st.columns(3)
-
-                with btn_col1:
-                    if st.button("👁️", key=f"view_{i}", help="View details"):
-                        st.session_state.agent_to_view = agent
-                        st.session_state.nav_intent = "AgentDetails"
-                        st.rerun()
-
-                with btn_col2:
-                    if st.button("✏️", key=f"edit_{i}", help="Edit agent"):
-                        st.session_state.agent_to_edit = agent
-                        st.session_state.nav_intent = "EditAgent"
-                        st.rerun()
-
-                with btn_col3:
-                    if st.button("💬", key=f"chat_{i}", help="Chat with agent"):
-                        st.session_state.selected_agent = agent
-                        st.session_state.nav_intent = "Chat"
-                        st.rerun()
-
-            # Close the div after all content
-            st.markdown("</div>", unsafe_allow_html=True)
-
-
-# Import extract_json_from_text from shared utilities instead of defining it here
-
-
-# The get_agents, get_fallback_agents functions are no longer needed
-# as the data provider handles this functionality
+    with col4:
+        if (
+            st.button("💬 Chat", use_container_width=True, disabled=not has_selection)
+            and selected_agent
+        ):
+            st.session_state.selected_agent = selected_agent
+            st.session_state.nav_intent = "Chat"
+            st.rerun()
 
 
 def get_models() -> list[str]:

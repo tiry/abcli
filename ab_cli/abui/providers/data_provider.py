@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from ab_cli.api.pagination import PaginatedResult
+
 
 class DataProvider(ABC):
     """Interface for data providers used by the Agent Builder UI."""
@@ -10,6 +12,19 @@ class DataProvider(ABC):
     @abstractmethod
     def get_agents(self) -> list[dict[str, Any]]:
         """Get list of available agents."""
+        pass
+
+    @abstractmethod
+    def get_agents_paginated(self, limit: int, offset: int) -> PaginatedResult:
+        """Get paginated list of agents.
+
+        Args:
+            limit: Maximum number of agents to return
+            offset: Number of agents to skip
+
+        Returns:
+            PaginatedResult with agents list and metadata
+        """
         pass
 
     @abstractmethod

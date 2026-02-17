@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from ab_cli.abui.providers.data_provider import DataProvider
 from ab_cli.abui.utils.json_utils import extract_json_from_text, extract_text_from_object
+from ab_cli.api.pagination import PaginatedResult
 
 
 class CLIDataProvider(DataProvider):
@@ -209,6 +210,62 @@ class CLIDataProvider(DataProvider):
             if self.verbose:
                 print(f"Error in get_agents: {e}")
             raise
+
+    def get_agents_paginated(self, limit: int, offset: int) -> PaginatedResult:
+        """Get paginated list of agents using CLI commands with server-side pagination.
+
+        Args:
+            limit: Maximum number of agents to return
+            offset: Number of agents to skip
+
+        Returns:
+            PaginatedResult with agents list and metadata
+        """
+        try:
+            # Use CLI command with pagination parameters (server-side pagination)
+            cmd = [
+                "agents",
+                "list",
+                "--limit",
+                str(limit),
+                "--offset",
+                str(offset),
+                "--format",
+                "json",
+            ]
+
+            # Don't use cache for paginated requests
+            result = self._run_command(cmd, use_cache=False)
+
+            # Extract agents and pagination info
+            agents = result.get("agents", [])
+            pagination_info = result.get("pagination", {})
+            total_count = pagination_info.get("total_items", len(agents))
+
+            # Return paginated result
+            return PaginatedResult(
+                agents=agents,
+                offset=offset,
+                limit=limit,
+                total_count=total_count,
+                has_filters=False,
+                agent_type=None,
+                name_pattern=None,
+            )
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error in get_agents_paginated: {e}")
+            # Return empty result on error
+            return PaginatedResult(
+                agents=[],
+                offset=offset,
+                limit=limit,
+                total_count=0,
+                has_filters=False,
+                agent_type=None,
+                name_pattern=None,
+            )
 
     def get_agent(self, agent_id: str) -> dict[str, Any] | None:
         """Get agent details by ID.

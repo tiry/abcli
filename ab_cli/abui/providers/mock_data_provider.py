@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, cast
 
 from ab_cli.abui.providers.data_provider import DataProvider
+from ab_cli.api.pagination import PaginatedResult
 
 
 class MockDataProvider(DataProvider):
@@ -75,6 +76,36 @@ class MockDataProvider(DataProvider):
         self.agents_cache = agents
         self.cache["agents"] = agents
         return cast(list[dict[str, Any]], agents)
+
+    def get_agents_paginated(self, limit: int, offset: int) -> PaginatedResult:
+        """Get paginated list of agents.
+
+        Args:
+            limit: Maximum number of agents to return
+            offset: Number of agents to skip
+
+        Returns:
+            PaginatedResult with agents list and metadata
+        """
+        # Get all agents
+        all_agents = self.get_agents()
+        total = len(all_agents)
+
+        # Apply pagination
+        start = offset
+        end = min(offset + limit, total)
+        page_agents = all_agents[start:end]
+
+        # Return paginated result
+        return PaginatedResult(
+            agents=page_agents,  # type: ignore[arg-type]
+            offset=offset,
+            limit=limit,
+            total_count=total,
+            has_filters=False,
+            agent_type=None,
+            name_pattern=None,
+        )
 
     def get_agent(self, agent_id: str) -> dict[str, Any] | None:
         """Get agent details by ID.
