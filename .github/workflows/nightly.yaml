@@ -48,16 +48,22 @@ jobs:
       - name: Prepare Artifact Folder
         shell: bash
         run: |
-          # Create a specific directory to zip
+          # Create the specific directory structure
           mkdir -p "release_zip/${{ matrix.artifact_name }}"
           cp -r dist/ab_cli "release_zip/${{ matrix.artifact_name }}/"
           cp ${{ matrix.install_script }} "release_zip/${{ matrix.artifact_name }}/"
           cp config.example.yaml "release_zip/${{ matrix.artifact_name }}/"
           
-          # Zip it now so the release job gets clean .zip files
-          cd release_zip
-          zip -r "../${{ matrix.artifact_name }}.zip" .
-        
+          # Conditional Zip Logic
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Windows lacks 'zip', use PowerShell instead
+            # Note: We point to the content INSIDE release_zip to avoid a nested root folder
+            powershell -Command "Compress-Archive -Path 'release_zip/*' -DestinationPath '${{ matrix.artifact_name }}.zip' -Force"
+          else
+            # macOS and Linux use standard zip
+            cd release_zip
+            zip -r "../${{ matrix.artifact_name }}.zip" .
+          fi        
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
