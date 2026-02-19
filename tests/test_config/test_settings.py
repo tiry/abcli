@@ -41,10 +41,10 @@ class TestABSettings:
             ABSettings()  # type: ignore[call-arg]
 
         errors = exc_info.value.errors()
-        assert len(errors) >= 3
+        assert len(errors) >= 2
         # Check that required fields are reported as missing
+        # Note: environment_id is now optional
         error_locs = {e["loc"][0] for e in errors}
-        assert "environment_id" in error_locs
         assert "client_id" in error_locs
         assert "client_secret" in error_locs
 

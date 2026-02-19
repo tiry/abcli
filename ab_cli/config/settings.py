@@ -27,14 +27,14 @@ class ABSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    # Required identifiers (HxP tenant info)
+    # Environment ID (optional - derived from API if not provided)
     environment_id: Annotated[
-        str,
+        str | None,
         Field(
-            description="HxP environment ID for the target tenant",
-            min_length=1,
+            default=None,
+            description="HxP environment ID for the target tenant (optional)",
         ),
-    ]
+    ] = None
 
     # Authentication
     client_id: Annotated[
@@ -269,7 +269,7 @@ def get_config_summary(settings: ABSettings) -> dict[str, str]:
         Dictionary of setting names to their (possibly redacted) values.
     """
     return {
-        "environment_id": settings.environment_id,
+        "environment_id": settings.environment_id or "(not set)",
         "api_endpoint": settings.api_endpoint,
         "auth_endpoint": settings.auth_endpoint,
         "client_id": _redact(settings.client_id),

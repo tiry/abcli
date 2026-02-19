@@ -28,7 +28,7 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.option(
     "-c",
@@ -50,6 +50,20 @@ def main(ctx: click.Context, verbose: bool, config: Path | None) -> None:
     config_path = config or find_config_file()
     ctx.obj["config_path"] = str(config_path) if config_path else None
 
+    # If no subcommand was provided, show helpful message
+    if ctx.invoked_subcommand is None:
+        # Show default help
+        console.print(ctx.get_help())
+        console.print()
+
+        # If no config found, show helpful hint
+        if not config_path:
+            console.print("[yellow]💡 Getting Started:[/yellow]")
+            console.print("   No configuration file found. To set up ab-cli, run:")
+            console.print("   [cyan]ab configure[/cyan]")
+            console.print()
+        return
+
     if config_path:
         try:
             ctx.obj["settings"] = load_config(config_path)
@@ -57,6 +71,8 @@ def main(ctx: click.Context, verbose: bool, config: Path | None) -> None:
                 console.print(f"[dim]Loaded config from: {config_path}[/dim]")
         except ConfigurationError as e:
             error_console.print(f"[red]Configuration error:[/red] {e}")
+            error_console.print("\nTo fix your configuration, run:")
+            error_console.print("  [cyan]ab configure[/cyan]")
             sys.exit(1)
 
 
@@ -116,8 +132,16 @@ def check(ctx: click.Context, config_override: str | None, auth_only: bool) -> N
     console.print(f"  Config file: {config_path}")
 
     if not config_path:
-        error_console.print("  [red]✗ No configuration file specified[/red]")
-        error_console.print("  Use --config option or create config.yaml")
+        error_console.print("  [red]✗ No configuration file found[/red]")
+        error_console.print()
+        error_console.print("  To create a configuration file, run:")
+        error_console.print("    [cyan]ab configure[/cyan]")
+        error_console.print()
+        error_console.print("  Searched locations:")
+        error_console.print("    • config.yaml (current directory)")
+        error_console.print("    • ab-cli.yaml (current directory)")
+        error_console.print("    • ~/.ab-cli/config.yaml")
+        console.print()
         sys.exit(1)
 
     try:
@@ -127,7 +151,8 @@ def check(ctx: click.Context, config_override: str | None, auth_only: bool) -> N
         console.print("  Configuration Summary:")
         console.print(f"    API endpoint:     {settings.api_endpoint}")
         console.print(f"    Auth endpoint:    {settings.auth_endpoint}")
-        console.print(f"    Environment ID:   {settings.environment_id}")
+        if settings.environment_id:
+            console.print(f"    Environment ID:   {settings.environment_id}")
         console.print(f"    Client ID:        {settings.client_id[:8]}...{settings.client_id[-4:]}")
         console.print(f"    Client secret:    {'*' * 20}")
         console.print()
@@ -281,11 +306,13 @@ def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -
 
 
 # Import all commands
+from ab_cli.cli.configure import configure  # noqa: E402
 from ab_cli.cli.invoke import invoke  # noqa: E402
 from ab_cli.cli.resources import resources  # noqa: E402
 from ab_cli.cli.ui import ui  # noqa: E402
 
 # Register all commands
+main.add_command(configure)
 main.add_command(agents)
 main.add_command(versions)
 main.add_command(invoke)

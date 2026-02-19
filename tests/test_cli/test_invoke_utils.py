@@ -165,8 +165,8 @@ class TestGetClient:
         mock_settings = MagicMock(spec=ABSettings)
         mock_client = MagicMock()
 
-        with patch("ab_cli.cli.invoke.load_config", return_value=mock_settings) as mock_load_config:
-            with patch("ab_cli.cli.invoke.AgentBuilderClient", return_value=mock_client) as mock_client_class:
+        with patch("ab_cli.cli.client_utils.load_config", return_value=mock_settings) as mock_load_config:
+            with patch("ab_cli.cli.client_utils.AgentBuilderClient", return_value=mock_client) as mock_client_class:
                 # Call get_client with a config path
                 client = get_client("/path/to/config.yaml")
 
@@ -182,9 +182,9 @@ class TestGetClient:
         mock_settings = MagicMock(spec=ABSettings)
         mock_client = MagicMock()
 
-        with patch("ab_cli.cli.invoke.find_config_file", return_value=mock_config_path) as mock_find_config:
-            with patch("ab_cli.cli.invoke.load_config", return_value=mock_settings) as mock_load_config:
-                with patch("ab_cli.cli.invoke.AgentBuilderClient", return_value=mock_client) as mock_client_class:
+        with patch("ab_cli.cli.client_utils.find_config_file", return_value=mock_config_path) as mock_find_config:
+            with patch("ab_cli.cli.client_utils.load_config", return_value=mock_settings) as mock_load_config:
+                with patch("ab_cli.cli.client_utils.AgentBuilderClient", return_value=mock_client) as mock_client_class:
                     # Call get_client without a config path
                     client = get_client()
 

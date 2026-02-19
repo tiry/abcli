@@ -9,16 +9,14 @@ from rich.table import Table
 
 from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.exceptions import APIError
-from ab_cli.config.loader import find_config_file, load_config
+from ab_cli.cli.client_utils import get_client_with_error_handling
 
 console = Console()
 
 
 def get_client(config_path: str | None = None) -> AgentBuilderClient:
-    """Get an authenticated API client."""
-    config_file = config_path or find_config_file()
-    settings = load_config(config_file)
-    return AgentBuilderClient(settings)
+    """Get an authenticated API client with user-friendly error handling."""
+    return get_client_with_error_handling(config_path)
 
 
 def output_json(data: dict) -> None:

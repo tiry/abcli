@@ -14,9 +14,14 @@ The Agent Builder CLI can be configured in three ways:
 
 | Parameter | Environment Variable | Description | 
 |-----------|---------------------|-------------|
-| `environment_id` | `AB_ENVIRONMENT_ID` | HxP environment ID for your tenant |
 | `client_id` | `AB_CLIENT_ID` | OAuth2 client ID for authentication |
 | `client_secret` | `AB_CLIENT_SECRET` | OAuth2 client secret for authentication |
+
+## Optional Tenant Parameters
+
+| Parameter | Environment Variable | Default | Description |
+|-----------|---------------------|---------|-------------|
+| `environment_id` | `AB_ENVIRONMENT_ID` | `None` | HxP environment ID for your tenant (optional - can be derived from API) |
 
 ## API Endpoint Configuration
 
