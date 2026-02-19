@@ -1,7 +1,7 @@
 # 1. Configuration
 $AppName = "ab_cli"
 $InstallDir = "C:\Program Files\$AppName"
-$SourceDist = ".\dist\$AppName"
+$SourceDist = ".\$AppName"
 
 # 2. Check for Admin Rights (Equivalent to sudo)
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
