@@ -24,6 +24,7 @@ def build():
         "--name", APP_NAME,
         "--collect-all",  "streamlit",
         "--collect-submodules", "rich._unicode_data",
+        "--add-data", "ab_cli/abui/app.py",
         "--onedir",
         ENTRY_POINT
     ]

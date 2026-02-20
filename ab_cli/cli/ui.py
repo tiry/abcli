@@ -76,6 +76,11 @@ def ui(
 
         # The app.py is directly in the abui module
         app_path = os.path.join(os.path.dirname(__file__), "..", "abui", "app.py")
+        if getattr(sys, 'frozen', False):
+            # We are running in a bundle
+            bundle_dir = sys._MEIPASS 
+            # Path to the python.exe inside your added 'python_env' folder
+            app_path = os.path.join(bundle_dir, "abui", "app.py")
 
         # Build the command
         cmd = [sys.executable, "-m", "streamlit", "run", app_path, "--server.port", str(port)]
