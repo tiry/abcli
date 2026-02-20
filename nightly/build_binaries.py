@@ -16,11 +16,14 @@ def build():
             shutil.rmtree(folder)
 
     # 2. Build command
+    
     cmd = [
         "pyinstaller",
         "--noconfirm",
         "--clean",
         "--name", APP_NAME,
+        "--collect-all",  "streamlit",
+        "--collect-submodules", "rich._unicode_data",
         "--onedir",
         ENTRY_POINT
     ]

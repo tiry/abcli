@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 from rich.console import Console
+import streamlit.web.cli as stcli
 
 # Rich console for formatted output
 console = Console()
@@ -106,7 +107,9 @@ def ui(
             # Pass the verbose output directly to stdout/stderr
             subprocess.run(cmd, stdout=sys.stdout, stderr=sys.stderr)
         else:
-            subprocess.run(cmd)
+            #subprocess.run(cmd)
+            sys.argv =cmd[2:]
+            sys.exit(stcli.main())
         return 0
 
     except ImportError as e:
