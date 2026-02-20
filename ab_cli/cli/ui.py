@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 import click
-from rich.console import Console
 import streamlit.web.cli as stcli
+from rich.console import Console
 
 # Rich console for formatted output
 console = Console()
@@ -76,9 +76,9 @@ def ui(
 
         # The app.py is directly in the abui module
         app_path = os.path.join(os.path.dirname(__file__), "..", "abui", "app.py")
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             # We are running in a bundle
-            bundle_dir = sys._MEIPASS 
+            bundle_dir = sys._MEIPASS  # type: ignore
             # Path to the python.exe inside your added 'python_env' folder
             app_path = os.path.join(bundle_dir, "abui", "app.py")
 
@@ -112,8 +112,8 @@ def ui(
             # Pass the verbose output directly to stdout/stderr
             subprocess.run(cmd, stdout=sys.stdout, stderr=sys.stderr)
         else:
-            #subprocess.run(cmd)
-            sys.argv =cmd[2:]
+            # subprocess.run(cmd)
+            sys.argv = cmd[2:]
             sys.exit(stcli.main())
         return 0
 
