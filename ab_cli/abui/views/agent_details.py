@@ -67,6 +67,25 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
         st.json(agent_config["inputSchema"])
         st.markdown("---")
 
+    # Display RAG configuration parameters if available
+    rag_params = {}
+    if "adjacentEmbeddingRange" in agent_config:
+        rag_params["Adjacent Embedding Range"] = agent_config["adjacentEmbeddingRange"]
+    if "adjacentEmbeddingMerge" in agent_config:
+        rag_params["Adjacent Embedding Merge"] = agent_config["adjacentEmbeddingMerge"]
+    if "limit" in agent_config:
+        rag_params["Chunk Limit"] = agent_config["limit"]
+    if "rerankerEnabled" in agent_config:
+        rag_params["Reranker Enabled"] = agent_config["rerankerEnabled"]
+    if "rerankerTopN" in agent_config:
+        rag_params["Reranker Top N"] = agent_config["rerankerTopN"]
+
+    if rag_params:
+        st.markdown("#### RAG Configuration")
+        for key, value in rag_params.items():
+            st.markdown(f"**{key}:** {value}")
+        st.markdown("---")
+
     # Create a copy of the config without the fields we've already displayed
     remaining_config = agent_config.copy()
     fields_to_remove = [
@@ -76,6 +95,11 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
         "tools",
         "inferenceConfig",
         "inputSchema",
+        "adjacentEmbeddingRange",
+        "adjacentEmbeddingMerge",
+        "limit",
+        "rerankerEnabled",
+        "rerankerTopN",
     ]
     for field in fields_to_remove:
         if field in remaining_config:
@@ -280,13 +304,16 @@ def show_agent_details_page() -> None:
                         table_data.append(
                             {
                                 "Number": version["number"],
-                                "Label": version.get("version_label") or "-",
+                                "Label": version.get("versionLabel") or version.get("version_label") or "-",
                                 "Notes": notes if notes else "-",
                                 "Created": created_at,
                                 "Created By": version.get("created_by") or "N/A",
                                 "Version ID": version["id"],
                             }
                         )
+
+                    # Reverse the list to show newest versions first
+                    table_data.reverse()
 
                     # Display as dataframe
                     df = pd.DataFrame(table_data)

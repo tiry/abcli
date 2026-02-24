@@ -93,6 +93,17 @@ def invoke() -> None:
     "--guardrails", multiple=True, help="Apply guardrails (can be specified multiple times)"
 )
 @click.option(
+    "--adjacent-range", type=int, help="Number of adjacent embedding chunks to fetch (RAG)"
+)
+@click.option("--adjacent-merge", is_flag=True, help="Merge adjacent chunks into parent (RAG)")
+@click.option(
+    "--chunk-limit", type=int, help="Maximum number of embedding chunks to retrieve (RAG)"
+)
+@click.option("--reranker", is_flag=True, help="Enable reranker post-processing (RAG)")
+@click.option(
+    "--reranker-top-n", type=int, help="Number of top results to keep after reranking (RAG)"
+)
+@click.option(
     "--format",
     "-f",
     "output_format",
@@ -115,6 +126,11 @@ def chat(
     hybrid_search: bool,
     deep_search: bool,
     guardrails: list[str],
+    adjacent_range: int | None,
+    adjacent_merge: bool,
+    chunk_limit: int | None,
+    reranker: bool,
+    reranker_top_n: int | None,
     output_format: str,
     verbose: bool,
 ) -> None:
@@ -152,6 +168,11 @@ def chat(
         hybridSearch=hybrid_search,
         enableDeepSearch=deep_search,
         guardrails=list(guardrails) if guardrails else None,
+        adjacentEmbeddingRange=adjacent_range,
+        adjacentEmbeddingMerge=adjacent_merge,
+        limit=chunk_limit,
+        rerankerEnabled=reranker if reranker else None,
+        rerankerTopN=reranker_top_n,
     )
 
     try:
@@ -297,6 +318,17 @@ def task(
 @click.option(
     "--guardrails", multiple=True, help="Apply guardrails (can be specified multiple times)"
 )
+@click.option(
+    "--adjacent-range", type=int, help="Number of adjacent embedding chunks to fetch (RAG)"
+)
+@click.option("--adjacent-merge", is_flag=True, help="Merge adjacent chunks into parent (RAG)")
+@click.option(
+    "--chunk-limit", type=int, help="Maximum number of embedding chunks to retrieve (RAG)"
+)
+@click.option("--reranker", is_flag=True, help="Enable reranker post-processing (RAG)")
+@click.option(
+    "--reranker-top-n", type=int, help="Number of top results to keep after reranking (RAG)"
+)
 @click.option("--stream", "-s", is_flag=True, help="Enable streaming responses")
 @click.option(
     "--verbose", "-v", is_flag=True, help="Show verbose output including raw API response"
@@ -310,6 +342,11 @@ def interactive(
     hybrid_search: bool,
     deep_search: bool,
     guardrails: list[str],
+    adjacent_range: int | None,
+    adjacent_merge: bool,
+    chunk_limit: int | None,
+    reranker: bool,
+    reranker_top_n: int | None,
     stream: bool,
     verbose: bool,
 ) -> None:
@@ -340,6 +377,16 @@ def interactive(
                     console.print("[dim]Deep Search: Enabled[/dim]")
                 if guardrails:
                     console.print(f"[dim]Guardrails: {', '.join(guardrails)}[/dim]")
+                if adjacent_range:
+                    console.print(f"[dim]Adjacent Range: {adjacent_range}[/dim]")
+                if adjacent_merge:
+                    console.print("[dim]Adjacent Merge: Enabled[/dim]")
+                if chunk_limit:
+                    console.print(f"[dim]Chunk Limit: {chunk_limit}[/dim]")
+                if reranker:
+                    console.print("[dim]Reranker: Enabled[/dim]")
+                if reranker_top_n:
+                    console.print(f"[dim]Reranker Top N: {reranker_top_n}[/dim]")
                 console.print("[dim]═══════════════════════════════════[/dim]\n")
 
             # Setup interactive session
@@ -378,6 +425,11 @@ def interactive(
                         hybridSearch=hybrid_search,
                         enableDeepSearch=deep_search,
                         guardrails=list(guardrails) if guardrails else None,
+                        adjacentEmbeddingRange=adjacent_range,
+                        adjacentEmbeddingMerge=adjacent_merge,
+                        limit=chunk_limit,
+                        rerankerEnabled=reranker if reranker else None,
+                        rerankerTopN=reranker_top_n,
                     )
 
                     # Request logging (verbose mode)

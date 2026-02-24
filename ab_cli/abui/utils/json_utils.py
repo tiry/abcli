@@ -27,82 +27,70 @@ def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] |
         if verbose:
             print("Direct JSON parsing failed, trying to extract JSON content")
 
-    # Try to find JSON content in the text
-    # Look for the first occurrence of { or [
-    json_start = -1
+    # Find all potential JSON objects in the text by finding all { and } pairs
+    # We'll try to parse each complete JSON object, preferring those at the end
+    potential_jsons: list[tuple[int, str]] = []
+    
+    # Find all starting positions of { or [
+    json_starts = []
     for i, c in enumerate(text):
         if c in "{[":
-            json_start = i
-            break
-
-    if json_start == -1:
+            json_starts.append((i, c))
+    
+    if not json_starts:
         if verbose:
             print("No JSON markers found in the text")
         return None
 
-    # Extract text from the first JSON marker
-    possible_json = text[json_start:]
-
-    # Try to find where JSON content ends
-    # This is more complex as we need to respect nesting
-    stack = []
-    json_end = -1
-
-    # In case there are multiple JSON objects, try to find balanced braces
-    for i, c in enumerate(possible_json):
-        if c in "{[":
-            stack.append(c)
-        elif c == "}" and stack and stack[-1] == "{" or c == "]" and stack and stack[-1] == "[":
-            stack.pop()
-            if not stack:
-                json_end = i + 1
-                break
-
-    if json_end == -1:
-        # Couldn't find balanced ending, try a simpler approach
-        closing_brace = possible_json.rfind("}")
-        closing_bracket = possible_json.rfind("]")
-        json_end = max(closing_brace, closing_bracket) + 1
-
-    if json_end <= 0:
+    # For each start position, try to find the matching end
+    for start_idx, start_char in json_starts:
+        possible_json = text[start_idx:]
+        stack = []
+        json_end = -1
+        
+        # Track brackets/braces to find balanced JSON
+        for i, c in enumerate(possible_json):
+            if c in "{[":
+                stack.append(c)
+            elif c == "}" and stack and stack[-1] == "{":
+                stack.pop()
+                if not stack:
+                    json_end = i + 1
+                    break
+            elif c == "]" and stack and stack[-1] == "[":
+                stack.pop()
+                if not stack:
+                    json_end = i + 1
+                    break
+        
+        if json_end > 0:
+            json_str = possible_json[:json_end]
+            potential_jsons.append((start_idx, json_str))
+    
+    if not potential_jsons:
         if verbose:
-            print("Couldn't find JSON end markers")
+            print("No complete JSON objects found")
         return None
-
-    json_str = possible_json[:json_end]
-
-    if verbose:
-        print(f"Extracted JSON string: {json_str}")
-
-    try:
-        return cast(dict[str, Any], json.loads(json_str))
-    except json.JSONDecodeError as e:
-        if verbose:
-            print(f"Failed to parse JSON: {e}")
-
-        # More aggressive approach - try using regex
-        json_pattern = r"(\{.*\}|\[.*\])"
+    
+    # Try parsing JSON objects from the END of the text first (most likely to be the CLI output)
+    # Sort by starting position, descending (later in text = higher priority)
+    potential_jsons.sort(key=lambda x: x[0], reverse=True)
+    
+    for start_pos, json_str in potential_jsons:
         try:
-            # Look for the largest JSON-like pattern in the text
-            matches = list(re.finditer(json_pattern, text, re.DOTALL))
-            if matches:
-                # Sort by length, descending
-                matches.sort(key=lambda m: len(m.group(0)), reverse=True)
-
-                # Try each match, starting with the largest
-                for match in matches:
-                    try:
-                        json_str = match.group(0)
-                        if verbose:
-                            print(f"Found potential JSON: {json_str[:100]}...")
-                        return cast(dict[str, Any], json.loads(json_str))
-                    except json.JSONDecodeError:
-                        continue
-        except Exception as e:
+            parsed = json.loads(json_str)
             if verbose:
-                print(f"Error extracting JSON with regex: {e}")
-
-        return None
+                print(f"Successfully parsed JSON starting at position {start_pos}")
+            return cast(dict[str, Any], parsed)
+        except json.JSONDecodeError:
+            if verbose:
+                print(f"Failed to parse JSON at position {start_pos}")
+            continue
+    
+    if verbose:
+        print("All JSON parsing attempts failed")
+    
+    return None
 
 
 def extract_text_from_object(obj: Any) -> str:

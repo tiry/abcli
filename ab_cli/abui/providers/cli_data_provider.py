@@ -5,6 +5,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 import tempfile
 from typing import Any, cast
 
@@ -59,30 +60,56 @@ class CLIDataProvider(DataProvider):
 
         cmd.extend(cmd_parts)
 
-        # Execute command
-        cmd_str = " ".join(cmd)
-        if self.verbose:
-            print(f"Executing shell command: {cmd_str}")
+        # Execute command - use list form instead of shell to avoid buffering issues
+        # Properly quote the command for display (using shlex.quote for safety)
+        cmd_str = " ".join(shlex.quote(str(part)) for part in cmd)
+        #print(f"[CLI Provider] Executing: {cmd_str}", file=sys.stderr)
 
-        result = subprocess.run(
-            cmd_str,
-            shell=True,
-            capture_output=True,
-            text=True,
-        )
+        if self.verbose:
+            print(f"[CLI Provider] Command list: {cmd}", file=sys.stderr)
+
+        try:
+            # Use list form (no shell) with stdin=DEVNULL to prevent hanging
+            # This avoids shell buffering issues and is more secure
+            result = subprocess.run(
+                cmd,  # Use list, not string
+                capture_output=True,
+                text=True,
+                timeout=30,  # 30 second timeout
+                stdin=subprocess.DEVNULL,  # Prevent subprocess from waiting for stdin
+                check=False,  # Don't raise on non-zero exit
+            )
+            print(f"[CLI Provider] Completed with return code: {result.returncode}", file=sys.stderr)
+            if self.verbose and result.stdout:
+                print(f"[CLI Provider] Stdout length: {len(result.stdout)} chars", file=sys.stderr)
+            if self.verbose and result.stderr:
+                print(f"[CLI Provider] Stderr: {result.stderr[:200]}", file=sys.stderr)
+        except subprocess.TimeoutExpired as e:
+            error_msg = f"Command timed out after 30 seconds: {cmd_str}"
+            print(f"[CLI Provider] TIMEOUT: {error_msg}", file=sys.stderr)
+            if self.verbose:
+                print(f"[CLI Provider] Partial stdout: {e.stdout[:500] if e.stdout else 'None'}", file=sys.stderr)
+                print(f"[CLI Provider] Partial stderr: {e.stderr[:500] if e.stderr else 'None'}", file=sys.stderr)
+            raise RuntimeError(error_msg) from e
+        except Exception as e:
+            error_msg = f"Command execution failed: {cmd_str}"
+            print(f"[CLI Provider] ERROR: {error_msg} - {str(e)}", file=sys.stderr)
+            raise RuntimeError(error_msg) from e
 
         # Process results
         if result.returncode == 0:
             try:
+                # Always use extract_json_from_text to handle debug output that may appear before/after JSON
+                # This is more robust than json.loads() as it strips non-JSON text
                 if self.verbose:
-                    data = extract_json_from_text(result.stdout, self.verbose)
-                else:
-                    try:
-                        data = json.loads(result.stdout)
-                    except json.JSONDecodeError:
-                        data = extract_json_from_text(result.stdout, self.verbose)
+                    print(f"[CLI Provider] Raw stdout ({len(result.stdout)} chars)", file=sys.stderr)
+                    print(f"[CLI Provider] Stdout preview: {result.stdout[:300]}", file=sys.stderr)
+                
+                data = extract_json_from_text(result.stdout, self.verbose)
 
                 if data:
+                    if self.verbose:
+                        print(f"[CLI Provider] Successfully extracted JSON with keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}", file=sys.stderr)
                     # Update cache
                     if use_cache:
                         self.cache[cache_key] = data
@@ -90,10 +117,13 @@ class CLIDataProvider(DataProvider):
                     result_dict: dict[str, Any] = data if isinstance(data, dict) else {}
                     return result_dict
                 else:
+                    print(f"[CLI Provider] No data extracted from stdout", file=sys.stderr)
+                    print(f"[CLI Provider] Stdout content: {result.stdout}", file=sys.stderr)
                     raise ValueError("Command returned empty or invalid JSON")
             except Exception as e:
-                if self.verbose:
-                    print(f"Error parsing command output: {e}")
+                print(f"[CLI Provider] Error parsing command output: {e}", file=sys.stderr)
+                if not self.verbose:
+                    print(f"[CLI Provider] Stdout: {result.stdout[:1000]}", file=sys.stderr)
                 raise
 
         # Handle errors
@@ -235,7 +265,7 @@ class CLIDataProvider(DataProvider):
             ]
 
             # Don't use cache for paginated requests
-            result = self._run_command(cmd, use_cache=False)
+            result = self._run_command(cmd, use_cache=True)
 
             # Extract agents and pagination info
             agents = result.get("agents", [])
@@ -644,22 +674,24 @@ class CLIDataProvider(DataProvider):
             pagination_info = result.get("pagination", {})
             agent_info = result.get("agent", {})
 
+            print(f"versions_list={versions_list}")
+
             return {
                 "versions": [
                     {
                         "id": str(v.get("id")),
                         "number": v.get("number"),
-                        "version_label": v.get("version_label"),
+                        "version_label": v.get("versionLabel"),
                         "notes": v.get("notes"),
-                        "created_at": v.get("created_at"),
-                        "created_by": v.get("created_by"),
+                        "created_at": v.get("createdAt"),
+                        "created_by": v.get("createdBy"),
                     }
                     for v in versions_list
                 ],
                 "pagination": {
                     "limit": pagination_info.get("limit", limit),
                     "offset": pagination_info.get("offset", offset),
-                    "total_items": pagination_info.get("total_items", len(versions_list)),
+                    "total_items": pagination_info.get("totalItems", len(versions_list)),
                 },
                 "agent": {
                     "id": str(agent_info.get("id")),
@@ -675,7 +707,7 @@ class CLIDataProvider(DataProvider):
                 print(f"Error fetching versions: {e}")
             return {
                 "versions": [],
-                "pagination": {"limit": limit, "offset": offset, "total_items": 0},
+                "pagination": {"limit": limit, "offset": offset, "totalItems": 0},
                 "agent": None,
             }
 

@@ -11,7 +11,7 @@ from tests.test_abui.streamlit_test_wrapper import (
 from tests.test_abui.test_data_provider import TestDataProvider
 
 
-def test_agent_creation_name_validation() -> None:
+def test_agent_creation_name_validation(test_data_provider: TestDataProvider) -> None:
     """Test that the agent creation form validates that name is required."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_create_agent_page_test)
@@ -19,6 +19,7 @@ def test_agent_creation_name_validation() -> None:
     # Set up the session state
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     
     # Run the app
     app_test.run(timeout=10)
@@ -164,7 +165,7 @@ def test_agent_creation_creates_agent(test_data_provider: TestDataProvider) -> N
     test_data_provider.create_agent = original_create_agent
 
 
-def test_agent_editing_expander_contents(test_agent: dict) -> None:
+def test_agent_editing_expander_contents(test_agent: dict, test_data_provider: TestDataProvider) -> None:
     """Test that the agent editing expanders contain the right elements."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_edit_agent_page_test)
@@ -173,6 +174,7 @@ def test_agent_editing_expander_contents(test_agent: dict) -> None:
     app_test.session_state["agent_to_edit"] = test_agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     
     # Run the app
     app_test.run(timeout=10)

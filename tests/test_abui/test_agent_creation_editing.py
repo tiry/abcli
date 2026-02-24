@@ -50,7 +50,7 @@ def test_edit_agent_page_loads(test_agent: dict, test_data_provider: TestDataPro
     assert button_found, "Form submit button not found"
 
 
-def test_create_agent_page_loads() -> None:
+def test_create_agent_page_loads(test_data_provider: TestDataProvider) -> None:
     """Test that the create agent page loads correctly."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_create_agent_page_test)
@@ -58,6 +58,7 @@ def test_create_agent_page_loads() -> None:
     # Set up the session state for creating a new agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     # Don't set agent_to_edit to simulate creating a new agent
     
     # Run the test function with a higher timeout value
@@ -100,7 +101,7 @@ def test_agent_editing_validation(test_agent: dict, test_data_provider: TestData
     assert name_input_found, "Agent Name field not found"
 
 
-def test_agent_editing_cancel_button(test_agent: dict) -> None:
+def test_agent_editing_cancel_button(test_agent: dict, test_data_provider: TestDataProvider) -> None:
     """Test that the cancel button exists on edit agent page."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_edit_agent_page_test)
@@ -109,6 +110,7 @@ def test_agent_editing_cancel_button(test_agent: dict) -> None:
     app_test.session_state["agent_to_edit"] = test_agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     
     # Run the test function
     app_test.run(timeout=10)
@@ -124,7 +126,7 @@ def test_agent_editing_cancel_button(test_agent: dict) -> None:
     assert cancel_button_found, "Cancel button not found"
 
 
-def test_agent_editing_form_elements(test_agent: dict) -> None:
+def test_agent_editing_form_elements(test_agent: dict, test_data_provider: TestDataProvider) -> None:
     """Test that the edit agent form contains all required elements."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_edit_agent_page_test)
@@ -133,6 +135,7 @@ def test_agent_editing_form_elements(test_agent: dict) -> None:
     app_test.session_state["agent_to_edit"] = test_agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     
     # Run the test function
     app_test.run(timeout=10)
@@ -163,7 +166,7 @@ def test_agent_editing_form_elements(test_agent: dict) -> None:
     assert update_button_found, "Update Agent button not found"
 
 
-def test_agent_creation_form_elements() -> None:
+def test_agent_creation_form_elements(test_data_provider: TestDataProvider) -> None:
     """Test that the agent creation form contains all required elements."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_create_agent_page_test)
@@ -171,6 +174,7 @@ def test_agent_creation_form_elements() -> None:
     # Set up the session state for creating a new agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     # Don't set agent_to_edit to simulate creating a new agent
     
     # Run the test function
@@ -231,7 +235,7 @@ def test_agent_editing_field_population(test_agent: dict, test_data_provider: Te
     assert name_field_has_value or app_test.exception is None, "Agent name not populated in form field"
 
 
-def test_agent_editing_advanced_sections_exist(test_agent: dict) -> None:
+def test_agent_editing_advanced_sections_exist(test_agent: dict, test_data_provider: TestDataProvider) -> None:
     """Test that the advanced configuration sections exist in the edit form."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_edit_agent_page_test)
@@ -240,6 +244,7 @@ def test_agent_editing_advanced_sections_exist(test_agent: dict) -> None:
     app_test.session_state["agent_to_edit"] = test_agent
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     
     # Run the test function
     app_test.run(timeout=10)

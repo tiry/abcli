@@ -530,12 +530,28 @@ Configuration:
 
 The Agent Builder CLI supports several advanced features for agent invocation:
 
+### Basic Options
+
 | Option | Description |
 |--------|-------------|
 | `--hxql-query` | HXQL query string for document retrieval |
 | `--hybrid-search` | Enable hybrid search (combines semantic and keyword search) |
 | `--deep-search` | Enable deep search for more thorough document analysis |
 | `--guardrails` | Apply content moderation guardrails (can specify multiple) |
+
+### Advanced RAG Configuration (New in v1.1)
+
+For RAG agents, you can fine-tune the retrieval and ranking behavior with these advanced parameters:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--adjacent-range` | Integer | Number of adjacent embedding chunks to fetch around each result. Provides more context by retrieving neighboring chunks. |
+| `--adjacent-merge` | Flag | Merge adjacent chunk text into the parent chunk instead of returning them as separate nodes. |
+| `--chunk-limit` | Integer | Maximum number of embedding chunks to retrieve from the knowledge base. |
+| `--reranker` | Flag | Enable reranker post-processing step to improve result relevance. |
+| `--reranker-top-n` | Integer | Number of top results to keep after reranking. |
+
+**Note**: These parameters are optional and will fall back to agent configuration or system defaults if not specified.
 
 ### Chat Invocation
 
@@ -560,6 +576,24 @@ ab invoke chat <agent-id> --message "Tell me about cybersecurity" --guardrails "
 
 # Combine multiple options
 ab invoke chat <agent-id> --message "Analyze our financial report" --hybrid-search --deep-search --guardrails "PII-Detection"
+
+# Advanced RAG configuration (new in v1.1)
+ab invoke chat <agent-id> \
+  --message "Find relevant documents about solar energy" \
+  --adjacent-range 2 \
+  --adjacent-merge \
+  --chunk-limit 10 \
+  --reranker \
+  --reranker-top-n 5
+
+# Combining RAG parameters with other options
+ab invoke chat <agent-id> \
+  --message "Analyze financial documents" \
+  --hybrid-search \
+  --adjacent-range 3 \
+  --reranker \
+  --reranker-top-n 8 \
+  --guardrails "PII-Detection"
 ```
 
 **Example Output:**
@@ -605,6 +639,24 @@ ab invoke interactive <agent-id> --hybrid-search
 
 # Interactive session with guardrails
 ab invoke interactive <agent-id> --guardrails "HAIP-Insults-Low" --guardrails "PII-Detection"
+
+# Interactive session with advanced RAG configuration (new in v1.1)
+ab invoke interactive <agent-id> \
+  --adjacent-range 2 \
+  --adjacent-merge \
+  --chunk-limit 15 \
+  --reranker \
+  --reranker-top-n 10
+
+# Interactive session combining all RAG options
+ab invoke interactive <agent-id> \
+  --hybrid-search \
+  --adjacent-range 3 \
+  --adjacent-merge \
+  --chunk-limit 20 \
+  --reranker \
+  --reranker-top-n 10 \
+  --guardrails "HAIP-Insults-Low"
 ```
 
 **Example Session:**

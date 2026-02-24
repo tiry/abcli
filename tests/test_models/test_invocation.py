@@ -140,6 +140,78 @@ class TestInvokeRequest:
         assert request.messages[0].role == "system"
         assert request.messages[-1].content == "Tell me about Python"
 
+    def test_invoke_request_with_rag_parameters(self) -> None:
+        """Create invoke request with new RAG parameters (OpenAPI v1.1)."""
+        messages = [ChatMessage(role="user", content="Find documents about solar energy")]
+        request = InvokeRequest(
+            messages=messages,
+            adjacentEmbeddingRange=2,
+            adjacentEmbeddingMerge=True,
+            limit=10,
+            rerankerEnabled=True,
+            rerankerTopN=5
+        )
+        assert request.adjacent_embedding_range == 2
+        assert request.adjacent_embedding_merge is True
+        assert request.limit == 10
+        assert request.reranker_enabled is True
+        assert request.reranker_top_n == 5
+
+    def test_invoke_request_rag_parameters_optional(self) -> None:
+        """RAG parameters are optional and default to None."""
+        messages = [ChatMessage(role="user", content="Hello")]
+        request = InvokeRequest(messages=messages)
+        assert request.adjacent_embedding_range is None
+        assert request.adjacent_embedding_merge is None
+        assert request.limit is None
+        assert request.reranker_enabled is None
+        assert request.reranker_top_n is None
+
+    def test_invoke_request_rag_parameters_serialization(self) -> None:
+        """RAG parameters serialize with camelCase aliases."""
+        messages = [ChatMessage(role="user", content="Search")]
+        request = InvokeRequest(
+            messages=messages,
+            adjacentEmbeddingRange=3,
+            adjacentEmbeddingMerge=True,
+            limit=20,
+            rerankerEnabled=True,
+            rerankerTopN=10
+        )
+        data = request.model_dump(by_alias=True, exclude_none=True)
+        assert data["adjacentEmbeddingRange"] == 3
+        assert data["adjacentEmbeddingMerge"] is True
+        assert data["limit"] == 20
+        assert data["rerankerEnabled"] is True
+        assert data["rerankerTopN"] == 10
+
+    def test_invoke_request_combined_rag_and_basic_parameters(self) -> None:
+        """Combine RAG parameters with existing parameters."""
+        messages = [ChatMessage(role="user", content="Analyze financial docs")]
+        request = InvokeRequest(
+            messages=messages,
+            hxqlQuery="SELECT * FROM documents WHERE category='financial'",
+            hybridSearch=True,
+            enableDeepSearch=True,
+            guardrails=["PII-Detection"],
+            adjacentEmbeddingRange=2,
+            adjacentEmbeddingMerge=True,
+            limit=15,
+            rerankerEnabled=True,
+            rerankerTopN=8
+        )
+        # Check basic parameters
+        assert request.hxql_query == "SELECT * FROM documents WHERE category='financial'"
+        assert request.hybrid_search is True
+        assert request.enable_deep_search is True
+        assert request.guardrails == ["PII-Detection"]
+        # Check RAG parameters
+        assert request.adjacent_embedding_range == 2
+        assert request.adjacent_embedding_merge is True
+        assert request.limit == 15
+        assert request.reranker_enabled is True
+        assert request.reranker_top_n == 8
+
 
 class TestInvokeTaskRequest:
     """Tests for InvokeTaskRequest model."""

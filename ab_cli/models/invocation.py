@@ -33,6 +33,13 @@ class InvokeRequest(BaseModel):
     enable_deep_search: bool = Field(False, alias="enableDeepSearch")
     guardrails: list[str] | None = None
 
+    # New RAG configuration parameters (OpenAPI v1.1)
+    adjacent_embedding_range: int | None = Field(None, alias="adjacentEmbeddingRange")
+    adjacent_embedding_merge: bool | None = Field(None, alias="adjacentEmbeddingMerge")
+    limit: int | None = None
+    reranker_enabled: bool | None = Field(None, alias="rerankerEnabled")
+    reranker_top_n: int | None = Field(None, alias="rerankerTopN")
+
     # Updated to use model_config instead of class Config (Pydantic v2 style)
     model_config = {
         "populate_by_name": True,
