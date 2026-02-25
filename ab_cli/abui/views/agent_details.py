@@ -150,10 +150,18 @@ def show_agent_details_page() -> None:
     provider = st.session_state.data_provider
 
     # Display agent header information
-    title_col, action_col1, action_col2 = st.columns([3, 1, 1])
+    title_col, json_col, action_col1, action_col2 = st.columns([3, 1, 1, 1])
 
     with title_col:
         st.title(f"Agent Details: {agent_to_view.get('name', 'Unknown Agent')}")
+
+    with json_col:
+        if st.button("📄 JSON", use_container_width=True):
+            # Toggle JSON view in session state
+            if "show_agent_json" not in st.session_state:
+                st.session_state.show_agent_json = False
+            st.session_state.show_agent_json = not st.session_state.show_agent_json
+            st.rerun()
 
     with action_col1:
         # Edit button
@@ -215,6 +223,13 @@ def show_agent_details_page() -> None:
             # Give some time for the session state to update
             time.sleep(0.1)
             st.rerun()
+
+    # Show full agent JSON if toggled
+    if st.session_state.get("show_agent_json", False):
+        st.markdown("---")
+        st.markdown("### Full Agent JSON")
+        st.json(agent_to_view)
+        st.markdown("---")
 
     # Create tabs for different sections
     tabs = st.tabs(["General Info", "Configuration", "Versions", "Statistics"])
@@ -304,7 +319,9 @@ def show_agent_details_page() -> None:
                         table_data.append(
                             {
                                 "Number": version["number"],
-                                "Label": version.get("versionLabel") or version.get("version_label") or "-",
+                                "Label": version.get("versionLabel")
+                                or version.get("version_label")
+                                or "-",
                                 "Notes": notes if notes else "-",
                                 "Created": created_at,
                                 "Created By": version.get("created_by") or "N/A",

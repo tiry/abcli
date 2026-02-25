@@ -1,0 +1,33 @@
+Loaded config from: /Users/thierry.delprat/.ab-cli/config.yaml
+
+═══ Pagination Details ═══
+Requested offset: 0
+Requested limit: 50
+Agents returned: 20
+Has filters: False
+════════════════════════
+
+{
+  "agents": [
+    {
+      "id": "e000cf30-53c1-40f4-8ba7-6cac1341c397",
+      "type": "rag",
+      "name": "HR Portal Agent",
+      "description": "Be agent",
+      "status": "CREATED"
+    },
+    {
+      "id": "c4b00d7f-4b1f-4153-8832-08fc26789344",
+      "type": "rag",
+      "name": "Contract agent",
+      "description": "Be agent",
+      "status": "CREATED"
+    }
+  ],
+  "pagination": {
+    "offset": 0,
+    "limit": 50,
+    "total_items": 20,
+    "has_more": false
+  }
+}

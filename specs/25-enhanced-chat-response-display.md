@@ -266,12 +266,44 @@ Model: us.mistral.pixtral-large-2502-v1:0 | RAG Mode: normal | Time: 2026-02-24 
 9. ✅ User can expand/collapse source citations
 10. ✅ Chunk text rendered with Markdown
 
+## Additional Enhancement: Visual "Thinking" Indicator
+
+**Feature Added**: Display visual feedback while agent processes requests
+
+**Implementation**:
+- **Chat agents**: Display "🤔 Agent is thinking..." spinner during agent invocation
+- **Task agents**: Display "Executing task..." spinner during task execution  
+- Uses Streamlit's `st.spinner()` for consistent UX
+- Spinner wraps the entire `invoke_agent()` call
+
+**User Benefit**: Clear feedback that the system is working on their request, improving perceived responsiveness
+
+## Unit Tests for JSON Utilities
+
+**Test Suite Created**: `tests/test_utils/test_json_utils.py`
+
+**Coverage**:
+- 11 tests for `extract_json_from_text()` 
+- 6 tests for `extract_text_from_object()`
+- 4 tests for `format_json()`
+- **21 total tests - ALL PASSING** ✅
+
+**Critical Bug Fixed**: `extract_json_from_text()` was extracting nested JSON objects instead of outer objects. Fixed by prioritizing larger JSON objects by byte size.
+
+**Test Data Files** (in `tests/data/json_utils/`):
+- `agents_list_with_debug.txt` - Real CLI output with debug info
+- `pure_json.txt` - Clean JSON
+- `multiple_json.txt` - Multiple JSON objects  
+- `no_json.txt` - Plain text
+
 ## Notes
 
 - This enhancement significantly improves transparency for RAG-based agents
 - Users can verify which documents were used to generate responses
 - Supports debugging and trust-building in AI responses
 - Foundation for future "View Document" feature (FR-3.7 - future)
+- Unit tests ensure robust JSON parsing from CLI output
+- "Thinking" indicator improves user experience during response generation
 
 ## References
 

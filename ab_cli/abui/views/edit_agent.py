@@ -12,22 +12,22 @@ from ab_cli.abui.views.agents import clear_cache, get_guardrails, get_models
 
 def increment_version(version: str) -> str:
     """Increment the last numeric component of a version string.
-    
+
     Examples:
         "v1.0" -> "v1.1"
         "v2.5" -> "v2.6"
         "v1.0.3" -> "v1.0.4"
         "1.2.3" -> "1.2.4"
         "release-5" -> "release-6"
-    
+
     Args:
         version: Version string to increment
-        
+
     Returns:
         Incremented version string
     """
     # Find the last number in the string
-    match = re.search(r'(\d+)(?!.*\d)', version)
+    match = re.search(r"(\d+)(?!.*\d)", version)
     if match:
         # Get the number and its position
         num = int(match.group(1))
@@ -74,14 +74,18 @@ def show_edit_agent_page() -> None:
                     # Update with fresh data
                     agent_to_edit = fresh_agent_data
                     st.session_state.agent_to_edit = fresh_agent_data
-                    
+
                     # Also fetch version history to get the actual latest version label
                     try:
-                        versions_data = provider.get_versions(agent_to_edit["id"], limit=100, offset=0)
+                        versions_data = provider.get_versions(
+                            agent_to_edit["id"], limit=100, offset=0
+                        )
                         if versions_data and versions_data.get("versions"):
                             # Get the first version (most recent due to API ordering)
                             latest_version = versions_data["versions"][-1]
-                            latest_version_label = latest_version.get("versionLabel") or latest_version.get("version_label")                            
+                            latest_version_label = latest_version.get(
+                                "versionLabel"
+                            ) or latest_version.get("version_label")
                     except Exception:
                         # If we can't get versions, fall back to agent's version_label
                         pass
@@ -149,28 +153,28 @@ def show_edit_agent_page() -> None:
         if agent_type == "rag":
             st.markdown("---")
             st.markdown("### 🔍 RAG Parameters")
-            
+
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 hxql_query = st.text_input(
                     "HXQL Query",
                     value=agent_config.get("hxqlQuery", ""),
                     help="Hyland Query Language query for filtering results",
                 )
-                
+
                 hybrid_search = st.checkbox(
                     "Hybrid Search",
                     value=agent_config.get("hybrid_search", False),
                     help="Enable hybrid search combining multiple search strategies",
                 )
-                
+
                 enable_deep_search = st.checkbox(
                     "Enable Deep Search",
                     value=agent_config.get("enable_deep_search", False),
                     help="Enable deep search for more thorough results",
                 )
-            
+
             with col2:
                 limit = st.number_input(
                     "Chunk Limit",
@@ -179,7 +183,7 @@ def show_edit_agent_page() -> None:
                     value=agent_config.get("limit", 10),
                     help="Maximum number of chunks to retrieve",
                 )
-                
+
                 adjacent_range = st.number_input(
                     "Adjacent Embedding Range",
                     min_value=0,
@@ -187,20 +191,20 @@ def show_edit_agent_page() -> None:
                     value=agent_config.get("adjacentEmbeddingRange", 0),
                     help="Number of adjacent chunks to fetch (0 = disabled)",
                 )
-                
+
                 adjacent_merge = st.checkbox(
                     "Merge Adjacent Chunks",
                     value=agent_config.get("adjacentEmbeddingMerge", False),
                     help="Merge adjacent chunks into parent document",
                 )
-            
+
             with col3:
                 reranker_enabled = st.checkbox(
                     "Enable Reranker",
                     value=agent_config.get("rerankerEnabled", False),
                     help="Enable reranker post-processing",
                 )
-                
+
                 reranker_top_n = st.number_input(
                     "Reranker Top N",
                     min_value=1,
@@ -253,15 +257,15 @@ def show_edit_agent_page() -> None:
         st.markdown("---")
         if agent_to_edit:
             st.markdown("### Version Information")
-            
+
             # Use latest version from version history if available, otherwise fall back to agent's version_label
             current_version = latest_version_label or agent_to_edit.get("versionLabel", "v1.0")
-            
+
             print(f"latest_version_label={latest_version_label}")
 
             print(f"current_version = {current_version} agent_to_edit= {agent_to_edit}")
             default_new_version = increment_version(current_version)
-            
+
             col_v1, col_v2 = st.columns(2)
             with col_v1:
                 version_label = st.text_input(
@@ -275,7 +279,7 @@ def show_edit_agent_page() -> None:
                     value="Updated via UI",
                     help="Brief description of changes in this version",
                 )
-        
+
         # Create columns for submit and cancel buttons
         st.markdown("---")
         col1, col2 = st.columns([1, 1])
@@ -352,7 +356,7 @@ def show_edit_agent_page() -> None:
 
                     # Determine action type before attempting operation
                     action_type = "update" if agent_to_edit else "create"
-                    
+
                     # Use data provider to create/update agent
                     with st.spinner(f"{'Updating' if agent_to_edit else 'Creating'} agent..."):
                         try:

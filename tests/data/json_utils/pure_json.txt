@@ -1,0 +1,1 @@
+{"status": "success", "message": "Operation completed", "data": {"count": 42}}

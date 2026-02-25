@@ -1,7 +1,6 @@
 """JSON utility functions for the Agent Builder UI."""
 
 import json
-import re
 from typing import Any, cast
 
 
@@ -29,52 +28,47 @@ def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] |
             print("##########")
             print(text)
             print("##########")
-            
+
     # Find all potential JSON objects in the text by finding all { and } pairs
     # We'll try to parse each complete JSON object, preferring those at the end
     potential_jsons: list[tuple[int, str]] = []
-    
+
     # Find all starting positions of { or [
     json_starts = []
     for i, c in enumerate(text):
         if c in "{[":
             json_starts.append((i, c))
-    
+
     if not json_starts:
         if verbose:
             print("No JSON markers found in the text")
         return None
 
     # For each start position, try to find the matching end
-    for start_idx, start_char in json_starts:
+    for start_idx, _start_char in json_starts:
         possible_json = text[start_idx:]
         stack = []
         json_end = -1
-        
+
         # Track brackets/braces to find balanced JSON
         for i, c in enumerate(possible_json):
             if c in "{[":
                 stack.append(c)
-            elif c == "}" and stack and stack[-1] == "{":
+            elif c == "}" and stack and stack[-1] == "{" or c == "]" and stack and stack[-1] == "[":
                 stack.pop()
                 if not stack:
                     json_end = i + 1
                     break
-            elif c == "]" and stack and stack[-1] == "[":
-                stack.pop()
-                if not stack:
-                    json_end = i + 1
-                    break
-        
+
         if json_end > 0:
             json_str = possible_json[:json_end]
             potential_jsons.append((start_idx, json_str))
-    
+
     if not potential_jsons:
         if verbose:
             print("No complete JSON objects found")
         return None
-    
+
     # Try parsing all potential JSON objects and find the best one
     # Prefer: 1) Later in text (likely CLI output), 2) Larger size (outer objects vs nested)
     parsed_jsons = []
@@ -89,25 +83,25 @@ def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] |
             if verbose:
                 print(f"Failed to parse JSON at position {start_pos}")
             continue
-    
+
     if not parsed_jsons:
         if verbose:
             print("No valid JSON could be parsed")
         return None
-    
+
     # Sort by: 1) Size descending (prefer larger/outer objects), 2) Position descending (prefer later)
     # This ensures we get the outermost JSON object that appears latest in the text
     parsed_jsons.sort(key=lambda x: (x[1], x[0]), reverse=True)
-    
+
     selected = parsed_jsons[0]
     if verbose:
         print(f"Selected JSON at position {selected[0]}, length {selected[1]}")
-    
+
     return cast(dict[str, Any], selected[2])
-    
+
     if verbose:
         print("All JSON parsing attempts failed")
-    
+
     return None
 
 

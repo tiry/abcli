@@ -54,9 +54,27 @@ def show_chat_page() -> None:
         agent = st.session_state.selected_agent
         agent_type = agent.get("type", "chat").lower()
 
-        if st.button("← Back to Agent Selection"):
-            st.session_state.selected_agent = None
-            st.rerun()
+        # Header with back button and View/Edit buttons
+        col1, col2, col3 = st.columns([2, 1, 1])
+
+        with col1:
+            if st.button("← Back to Agent Selection"):
+                st.session_state.selected_agent = None
+                st.rerun()
+
+        with col2:
+            if st.button("👁️ View Agent"):
+                # Navigate to agent details view
+                st.session_state.agent_to_view = agent
+                st.session_state.current_page = "AgentDetails"
+                st.rerun()
+
+        with col3:
+            if st.button("✏️ Edit Agent"):
+                # Navigate to edit agent view
+                st.session_state.agent_to_edit = agent
+                st.session_state.current_page = "EditAgent"
+                st.rerun()
 
         # Display agent tools if available
         display_agent_tools(agent)
@@ -88,30 +106,47 @@ def show_chat_agent_interface(agent: dict[str, Any]) -> None:
         # Add user message to chat history
         chat_history.append({"role": "user", "content": user_message})
 
-        # Get response from agent
-        config = st.session_state.get("config", {})
-        data_provider = get_data_provider(config)
+        # Show a placeholder message with thinking indicator
+        with st.chat_message("assistant"), st.spinner("🤔 Agent is thinking..."):
+            # Get response from agent
+            config = st.session_state.get("config", {})
+            data_provider = get_data_provider(config)
 
-        try:
-            agent_type = agent.get("type", "chat")
-            response_data = data_provider.invoke_agent(agent_id, user_message, agent_type=agent_type)
+            try:
+                agent_type = agent.get("type", "chat")
+                response_data = data_provider.invoke_agent(
+                    agent_id, user_message, agent_type=agent_type
+                )
 
-            # Store full response structure with metadata
-            chat_history.append({
-                "role": "assistant",
-                "content": response_data.get("response_text", ""),
-                "metadata": {
-                    "model": response_data.get("model"),
-                    "source_nodes": response_data.get("source_nodes", []),
-                    "rag_mode": response_data.get("rag_mode"),
-                    "created_at": response_data.get("created_at"),
-                }
-            })
+                # Handle both dict (CLI provider) and str (mock provider) responses
+                if isinstance(response_data, dict):
+                    # Store full response structure with metadata AND full raw response
+                    chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": response_data.get("response_text", ""),
+                            "metadata": {
+                                "model": response_data.get("model"),
+                                "source_nodes": response_data.get("source_nodes", []),
+                                "rag_mode": response_data.get("rag_mode"),
+                                "created_at": response_data.get("created_at"),
+                            },
+                            "full_response": response_data,  # Store the complete response
+                        }
+                    )
+                else:
+                    # String response from mock provider
+                    chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": response_data,
+                        }
+                    )
 
-            # Force UI refresh
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+                # Force UI refresh
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
 
 
 def show_task_agent_interface(agent: dict[str, Any]) -> None:
@@ -202,10 +237,11 @@ def display_chat_history(chat_history: list[dict[str, Any]]) -> None:
     Args:
         chat_history: List of message dictionaries with role, content, and optional metadata.
     """
-    for message in chat_history:
+    for idx, message in enumerate(chat_history):
         role = message["role"]
         content = message.get("content", "")
         metadata = message.get("metadata", {})
+        full_response = message.get("full_response")
 
         with st.chat_message(role):
             if role == "user":
@@ -222,15 +258,30 @@ def display_chat_history(chat_history: list[dict[str, Any]]) -> None:
                 # Assistant messages - render with Markdown and show metadata
                 if content:
                     st.markdown(content)
-                
+
                 # Display source citations if available
                 source_nodes = metadata.get("source_nodes", [])
                 if source_nodes:
                     display_source_citations(source_nodes)
-                
+
                 # Display metadata
                 if metadata:
                     display_message_metadata(metadata)
+
+                # Add JSON button if full response is available
+                if full_response:
+                    # Create unique key for this message's JSON toggle
+                    json_key = f"show_json_{idx}"
+                    if json_key not in st.session_state:
+                        st.session_state[json_key] = False
+
+                    if st.button("📄 View Full JSON", key=f"json_btn_{idx}", type="secondary"):
+                        st.session_state[json_key] = not st.session_state[json_key]
+                        st.rerun()
+
+                    # Show JSON if toggled
+                    if st.session_state[json_key]:
+                        st.json(full_response)
 
 
 def display_source_citations(source_nodes: list[dict[str, Any]]) -> None:
@@ -241,20 +292,20 @@ def display_source_citations(source_nodes: list[dict[str, Any]]) -> None:
     """
     if not source_nodes:
         return
-    
+
     # Sort by score (highest first)
     sorted_sources = sorted(source_nodes, key=lambda x: x.get("score", 0), reverse=True)
-    
+
     with st.expander(f"📚 Sources ({len(sorted_sources)} documents)", expanded=False):
         for idx, source in enumerate(sorted_sources, 1):
             doc_id = source.get("docId", "Unknown")
             chunk_id = source.get("chunkId", "Unknown")
             score = source.get("score", 0)
             text = source.get("text", "")
-            
+
             # Display source header
             st.markdown(f"**Source {idx}** (Score: {score:.3f})")
-            
+
             # Display IDs in a compact format
             col1, col2 = st.columns(2)
             with col1:
@@ -264,7 +315,7 @@ def display_source_citations(source_nodes: list[dict[str, Any]]) -> None:
             with col2:
                 short_chunk_id = chunk_id[:40] + "..." if len(chunk_id) > 40 else chunk_id
                 st.caption(f"🔖 Chunk: `{short_chunk_id}`")
-            
+
             # Display chunk content with Markdown
             if text:
                 with st.container():
@@ -272,7 +323,7 @@ def display_source_citations(source_nodes: list[dict[str, Any]]) -> None:
                     # Limit text length to avoid overwhelming the UI
                     display_text = text[:500] + "..." if len(text) > 500 else text
                     st.markdown(display_text)
-            
+
             # Add separator between sources
             if idx < len(sorted_sources):
                 st.markdown("---")
@@ -287,7 +338,7 @@ def display_message_metadata(metadata: dict[str, Any]) -> None:
     model = metadata.get("model")
     rag_mode = metadata.get("rag_mode")
     created_at = metadata.get("created_at")
-    
+
     # Build metadata string
     meta_parts = []
     if model:
@@ -297,13 +348,14 @@ def display_message_metadata(metadata: dict[str, Any]) -> None:
     if created_at:
         # Convert timestamp to readable format
         from datetime import datetime
+
         try:
             dt = datetime.fromtimestamp(created_at)
             time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
             meta_parts.append(f"Time: {time_str}")
         except Exception:
             pass
-    
+
     if meta_parts:
         st.caption(" | ".join(meta_parts))
 

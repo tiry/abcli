@@ -48,7 +48,9 @@ class DataProvider(ABC):
         pass
 
     @abstractmethod
-    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> str:
+    def invoke_agent(
+        self, agent_id: str, message: str, agent_type: str = "chat"
+    ) -> dict[str, Any] | str:
         """Invoke an agent with a message.
 
         Args:
@@ -57,7 +59,7 @@ class DataProvider(ABC):
             agent_type: Type of agent ("chat", "rag", "tool", "task")
 
         Returns:
-            Agent response as text
+            Agent response as dict with metadata (for CLI provider) or text (for mock provider)
         """
         pass
 

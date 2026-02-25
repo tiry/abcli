@@ -1,0 +1,5 @@
+Debug info: Starting operation
+{"debug": "First JSON object"}
+Some other text here
+{"result": "This is the actual result", "status": "ok"}
+Trailing text after JSON

@@ -10,7 +10,7 @@ import tempfile
 from typing import Any, cast
 
 from ab_cli.abui.providers.data_provider import DataProvider
-from ab_cli.abui.utils.json_utils import extract_json_from_text, extract_text_from_object
+from ab_cli.abui.utils.json_utils import extract_json_from_text
 from ab_cli.api.pagination import PaginatedResult
 
 
@@ -63,7 +63,7 @@ class CLIDataProvider(DataProvider):
         # Execute command - use list form instead of shell to avoid buffering issues
         # Properly quote the command for display (using shlex.quote for safety)
         cmd_str = " ".join(shlex.quote(str(part)) for part in cmd)
-        #print(f"[CLI Provider] Executing: {cmd_str}", file=sys.stderr)
+        # print(f"[CLI Provider] Executing: {cmd_str}", file=sys.stderr)
 
         if self.verbose:
             print(f"[CLI Provider] Command list: {cmd}", file=sys.stderr)
@@ -79,7 +79,9 @@ class CLIDataProvider(DataProvider):
                 stdin=subprocess.DEVNULL,  # Prevent subprocess from waiting for stdin
                 check=False,  # Don't raise on non-zero exit
             )
-            print(f"[CLI Provider] Completed with return code: {result.returncode}", file=sys.stderr)
+            print(
+                f"[CLI Provider] Completed with return code: {result.returncode}", file=sys.stderr
+            )
             if self.verbose and result.stdout:
                 print(f"[CLI Provider] Stdout length: {len(result.stdout)} chars", file=sys.stderr)
             if self.verbose and result.stderr:
@@ -88,8 +90,21 @@ class CLIDataProvider(DataProvider):
             error_msg = f"Command timed out after 30 seconds: {cmd_str}"
             print(f"[CLI Provider] TIMEOUT: {error_msg}", file=sys.stderr)
             if self.verbose:
-                print(f"[CLI Provider] Partial stdout: {e.stdout[:500] if e.stdout else 'None'}", file=sys.stderr)
-                print(f"[CLI Provider] Partial stderr: {e.stderr[:500] if e.stderr else 'None'}", file=sys.stderr)
+                stdout_str = e.stdout[:500] if e.stdout else "None"
+                stderr_str = e.stderr[:500] if e.stderr else "None"
+                # Handle bytes if needed
+                if isinstance(stdout_str, bytes):
+                    stdout_str = stdout_str.decode("utf-8", errors="replace")
+                if isinstance(stderr_str, bytes):
+                    stderr_str = stderr_str.decode("utf-8", errors="replace")
+                print(
+                    f"[CLI Provider] Partial stdout: {stdout_str}",
+                    file=sys.stderr,
+                )
+                print(
+                    f"[CLI Provider] Partial stderr: {stderr_str}",
+                    file=sys.stderr,
+                )
             raise RuntimeError(error_msg) from e
         except Exception as e:
             error_msg = f"Command execution failed: {cmd_str}"
@@ -102,14 +117,19 @@ class CLIDataProvider(DataProvider):
                 # Always use extract_json_from_text to handle debug output that may appear before/after JSON
                 # This is more robust than json.loads() as it strips non-JSON text
                 if self.verbose:
-                    print(f"[CLI Provider] Raw stdout ({len(result.stdout)} chars)", file=sys.stderr)
+                    print(
+                        f"[CLI Provider] Raw stdout ({len(result.stdout)} chars)", file=sys.stderr
+                    )
                     print(f"[CLI Provider] Stdout preview: {result.stdout[:300]}", file=sys.stderr)
-                
+
                 data = extract_json_from_text(result.stdout, self.verbose)
 
                 if data:
                     if self.verbose:
-                        print(f"[CLI Provider] Successfully extracted JSON with keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}", file=sys.stderr)
+                        print(
+                            f"[CLI Provider] Successfully extracted JSON with keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}",
+                            file=sys.stderr,
+                        )
                     # Update cache
                     if use_cache:
                         self.cache[cache_key] = data
@@ -117,7 +137,7 @@ class CLIDataProvider(DataProvider):
                     result_dict: dict[str, Any] = data if isinstance(data, dict) else {}
                     return result_dict
                 else:
-                    print(f"[CLI Provider] No data extracted from stdout", file=sys.stderr)
+                    print("[CLI Provider] No data extracted from stdout", file=sys.stderr)
                     print(f"[CLI Provider] Stdout content: {result.stdout}", file=sys.stderr)
                     raise ValueError("Command returned empty or invalid JSON")
             except Exception as e:
@@ -532,7 +552,7 @@ class CLIDataProvider(DataProvider):
         """
         # Extract response text - this is the ACTUAL agent response, not chunk text
         response_text = result.get("response", "")
-        
+
         # If empty, try to extract from output array
         if not response_text and "output" in result:
             output = result["output"]
@@ -543,7 +563,10 @@ class CLIDataProvider(DataProvider):
                         if isinstance(content, list):
                             texts = []
                             for content_item in content:
-                                if content_item.get("type") == "output_text" and "text" in content_item:
+                                if (
+                                    content_item.get("type") == "output_text"
+                                    and "text" in content_item
+                                ):
                                     texts.append(content_item["text"])
                             if texts:
                                 response_text = "\n".join(texts)
@@ -558,7 +581,7 @@ class CLIDataProvider(DataProvider):
         # Extract source nodes from custom_outputs
         source_nodes = []
         rag_mode = None
-        
+
         custom_outputs = result.get("custom_outputs", {})
         if custom_outputs:
             source_nodes = custom_outputs.get("sourceNodes", [])
