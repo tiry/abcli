@@ -475,7 +475,7 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in delete_agent: {e}")
             return False
 
-    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> str:
+    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> dict[str, Any]:
         """Invoke an agent with a message.
 
         Args:
@@ -484,7 +484,7 @@ class CLIDataProvider(DataProvider):
             agent_type: Type of agent ("chat", "rag", "tool", "task")
 
         Returns:
-            Agent response as text
+            Dict with structured response containing response_text, model, source_nodes, etc.
         """
         try:
             # Quote the message to handle special characters
@@ -502,65 +502,83 @@ class CLIDataProvider(DataProvider):
 
             if self.verbose:
                 print(f"[DEBUG] invoke_agent result keys: {list(result.keys())}")
-                if "response" in result:
-                    print(f"[DEBUG] response field type: {type(result['response'])}")
 
-            # Extract response from result - check "response" field first
-            if "response" in result:
-                response_value = result["response"]
-                # Ensure we return a string
-                if isinstance(response_value, str):
-                    if self.verbose:
-                        print(f"[DEBUG] Returning response text (length: {len(response_value)})")
-                    return response_value
-                else:
-                    # If it's not a string, convert it
-                    if self.verbose:
-                        print(f"[DEBUG] Converting response from {type(response_value)} to string")
-                    return str(response_value)
-
-            # Try to extract response from output array
-            if "output" in result:
-                output = result["output"]
-
-                if isinstance(output, list):
-                    # Look for message type outputs
-                    for item in output:
-                        if item.get("type") == "message" and item.get("role") == "assistant":
-                            content = item.get("content", [])
-                            # Extract text from content array
-                            if isinstance(content, list):
-                                texts = []
-                                for content_item in content:
-                                    if (
-                                        content_item.get("type") == "output_text"
-                                        and "text" in content_item
-                                    ):
-                                        texts.append(content_item["text"])
-                                if texts:
-                                    response_text = " ".join(texts)
-                                    if self.verbose:
-                                        print(
-                                            f"[DEBUG] Extracted from output array (length: {len(response_text)})"
-                                        )
-                                    return response_text
-
-            # Try to extract text from nested structures
-            extracted_text = extract_text_from_object(result)
-            if extracted_text and extracted_text != "No response text found":
-                if self.verbose:
-                    print("[DEBUG] Extracted via extract_text_from_object")
-                return extracted_text
-
-            # Fallback - log the issue
-            if self.verbose:
-                print("[DEBUG] No response extracted, returning error message")
-            return f"No response found in agent output: {result}"
+            # Parse and structure the response
+            return self._parse_invoke_response(result)
 
         except Exception as e:
             if self.verbose:
                 print(f"Error in invoke_agent: {e}")
-            return f"Error invoking agent: {str(e)}"
+            # Return error structure
+            return {
+                "response_text": f"Error invoking agent: {str(e)}",
+                "model": None,
+                "created_at": None,
+                "source_nodes": [],
+                "rag_mode": None,
+                "usage": None,
+                "finish_reason": None,
+                "metadata": None,
+            }
+
+    def _parse_invoke_response(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Parse invoke response into structured format.
+
+        Args:
+            result: Raw response from CLI command
+
+        Returns:
+            Structured response dict
+        """
+        # Extract response text - this is the ACTUAL agent response, not chunk text
+        response_text = result.get("response", "")
+        
+        # If empty, try to extract from output array
+        if not response_text and "output" in result:
+            output = result["output"]
+            if isinstance(output, list):
+                for item in output:
+                    if item.get("type") == "message" and item.get("role") == "assistant":
+                        content = item.get("content", [])
+                        if isinstance(content, list):
+                            texts = []
+                            for content_item in content:
+                                if content_item.get("type") == "output_text" and "text" in content_item:
+                                    texts.append(content_item["text"])
+                            if texts:
+                                response_text = "\n".join(texts)
+                                break
+
+        # Extract metadata
+        model = result.get("model")
+        created_at = result.get("created_at")
+        usage = result.get("usage")
+        finish_reason = result.get("finish_reason")
+
+        # Extract source nodes from custom_outputs
+        source_nodes = []
+        rag_mode = None
+        
+        custom_outputs = result.get("custom_outputs", {})
+        if custom_outputs:
+            source_nodes = custom_outputs.get("sourceNodes", [])
+            rag_mode = custom_outputs.get("ragMode")
+
+        if self.verbose:
+            print(f"[DEBUG] Parsed response_text length: {len(response_text)}")
+            print(f"[DEBUG] Found {len(source_nodes)} source nodes")
+            print(f"[DEBUG] Model: {model}, RAG mode: {rag_mode}")
+
+        return {
+            "response_text": response_text,
+            "model": model,
+            "created_at": created_at,
+            "source_nodes": source_nodes,
+            "rag_mode": rag_mode,
+            "usage": usage,
+            "finish_reason": finish_reason,
+            "metadata": custom_outputs,
+        }
 
     def get_models(self) -> list[str]:
         """Get list of available models.

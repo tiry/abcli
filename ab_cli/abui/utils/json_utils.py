@@ -26,7 +26,10 @@ def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] |
     except json.JSONDecodeError:
         if verbose:
             print("Direct JSON parsing failed, trying to extract JSON content")
-
+            print("##########")
+            print(text)
+            print("##########")
+            
     # Find all potential JSON objects in the text by finding all { and } pairs
     # We'll try to parse each complete JSON object, preferring those at the end
     potential_jsons: list[tuple[int, str]] = []
@@ -72,20 +75,35 @@ def extract_json_from_text(text: str, verbose: bool = False) -> dict[str, Any] |
             print("No complete JSON objects found")
         return None
     
-    # Try parsing JSON objects from the END of the text first (most likely to be the CLI output)
-    # Sort by starting position, descending (later in text = higher priority)
-    potential_jsons.sort(key=lambda x: x[0], reverse=True)
-    
+    # Try parsing all potential JSON objects and find the best one
+    # Prefer: 1) Later in text (likely CLI output), 2) Larger size (outer objects vs nested)
+    parsed_jsons = []
     for start_pos, json_str in potential_jsons:
         try:
             parsed = json.loads(json_str)
+            # Store: (start_position, length, parsed_object)
+            parsed_jsons.append((start_pos, len(json_str), parsed))
             if verbose:
-                print(f"Successfully parsed JSON starting at position {start_pos}")
-            return cast(dict[str, Any], parsed)
+                print(f"Successfully parsed JSON at position {start_pos}, length {len(json_str)}")
         except json.JSONDecodeError:
             if verbose:
                 print(f"Failed to parse JSON at position {start_pos}")
             continue
+    
+    if not parsed_jsons:
+        if verbose:
+            print("No valid JSON could be parsed")
+        return None
+    
+    # Sort by: 1) Size descending (prefer larger/outer objects), 2) Position descending (prefer later)
+    # This ensures we get the outermost JSON object that appears latest in the text
+    parsed_jsons.sort(key=lambda x: (x[1], x[0]), reverse=True)
+    
+    selected = parsed_jsons[0]
+    if verbose:
+        print(f"Selected JSON at position {selected[0]}, length {selected[1]}")
+    
+    return cast(dict[str, Any], selected[2])
     
     if verbose:
         print("All JSON parsing attempts failed")

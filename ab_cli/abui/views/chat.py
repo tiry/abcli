@@ -88,16 +88,25 @@ def show_chat_agent_interface(agent: dict[str, Any]) -> None:
         # Add user message to chat history
         chat_history.append({"role": "user", "content": user_message})
 
-        # Simulate agent response (in a real app, this would call the API)
+        # Get response from agent
         config = st.session_state.get("config", {})
         data_provider = get_data_provider(config)
 
         try:
             agent_type = agent.get("type", "chat")
-            response = data_provider.invoke_agent(agent_id, user_message, agent_type=agent_type)
+            response_data = data_provider.invoke_agent(agent_id, user_message, agent_type=agent_type)
 
-            # Add agent response to chat history
-            chat_history.append({"role": "assistant", "content": response})
+            # Store full response structure with metadata
+            chat_history.append({
+                "role": "assistant",
+                "content": response_data.get("response_text", ""),
+                "metadata": {
+                    "model": response_data.get("model"),
+                    "source_nodes": response_data.get("source_nodes", []),
+                    "rag_mode": response_data.get("rag_mode"),
+                    "created_at": response_data.get("created_at"),
+                }
+            })
 
             # Force UI refresh
             st.rerun()
@@ -187,29 +196,116 @@ def show_task_agent_interface(agent: dict[str, Any]) -> None:
             st.error(f"Error: {str(e)}")
 
 
-def display_chat_history(chat_history: list[dict[str, str]]) -> None:
-    """Display chat history using st.chat_message components.
+def display_chat_history(chat_history: list[dict[str, Any]]) -> None:
+    """Display chat history using st.chat_message components with Markdown and source citations.
 
     Args:
-        chat_history: List of message dictionaries with role and content.
+        chat_history: List of message dictionaries with role, content, and optional metadata.
     """
     for message in chat_history:
         role = message["role"]
-        content = message["content"]
+        content = message.get("content", "")
+        metadata = message.get("metadata", {})
 
         with st.chat_message(role):
-            # Check if content looks like JSON
-            try:
-                if content.strip().startswith("{") and content.strip().endswith("}"):
-                    # Try to parse and format JSON
-                    json_data = json.loads(content)
-                    st.json(json_data)
-                else:
-                    # Regular text
-                    st.write(content)
-            except (json.JSONDecodeError, AttributeError):
-                # Not valid JSON or not a string, display as is
-                st.write(content)
+            if role == "user":
+                # User messages - check if JSON (for task agents)
+                try:
+                    if content.strip().startswith("{") and content.strip().endswith("}"):
+                        json_data = json.loads(content)
+                        st.json(json_data)
+                    else:
+                        st.markdown(content)
+                except (json.JSONDecodeError, AttributeError):
+                    st.markdown(content)
+            else:
+                # Assistant messages - render with Markdown and show metadata
+                if content:
+                    st.markdown(content)
+                
+                # Display source citations if available
+                source_nodes = metadata.get("source_nodes", [])
+                if source_nodes:
+                    display_source_citations(source_nodes)
+                
+                # Display metadata
+                if metadata:
+                    display_message_metadata(metadata)
+
+
+def display_source_citations(source_nodes: list[dict[str, Any]]) -> None:
+    """Display source citations in an expandable section.
+
+    Args:
+        source_nodes: List of source node dictionaries with docId, chunkId, score, text.
+    """
+    if not source_nodes:
+        return
+    
+    # Sort by score (highest first)
+    sorted_sources = sorted(source_nodes, key=lambda x: x.get("score", 0), reverse=True)
+    
+    with st.expander(f"📚 Sources ({len(sorted_sources)} documents)", expanded=False):
+        for idx, source in enumerate(sorted_sources, 1):
+            doc_id = source.get("docId", "Unknown")
+            chunk_id = source.get("chunkId", "Unknown")
+            score = source.get("score", 0)
+            text = source.get("text", "")
+            
+            # Display source header
+            st.markdown(f"**Source {idx}** (Score: {score:.3f})")
+            
+            # Display IDs in a compact format
+            col1, col2 = st.columns(2)
+            with col1:
+                # Truncate long document IDs
+                short_doc_id = doc_id[:40] + "..." if len(doc_id) > 40 else doc_id
+                st.caption(f"📄 Doc: `{short_doc_id}`")
+            with col2:
+                short_chunk_id = chunk_id[:40] + "..." if len(chunk_id) > 40 else chunk_id
+                st.caption(f"🔖 Chunk: `{short_chunk_id}`")
+            
+            # Display chunk content with Markdown
+            if text:
+                with st.container():
+                    st.markdown("**Content:**")
+                    # Limit text length to avoid overwhelming the UI
+                    display_text = text[:500] + "..." if len(text) > 500 else text
+                    st.markdown(display_text)
+            
+            # Add separator between sources
+            if idx < len(sorted_sources):
+                st.markdown("---")
+
+
+def display_message_metadata(metadata: dict[str, Any]) -> None:
+    """Display message metadata in a compact format.
+
+    Args:
+        metadata: Dictionary containing model, rag_mode, created_at, etc.
+    """
+    model = metadata.get("model")
+    rag_mode = metadata.get("rag_mode")
+    created_at = metadata.get("created_at")
+    
+    # Build metadata string
+    meta_parts = []
+    if model:
+        meta_parts.append(f"Model: {model}")
+    if rag_mode:
+        meta_parts.append(f"RAG Mode: {rag_mode}")
+    if created_at:
+        # Convert timestamp to readable format
+        from datetime import datetime
+        try:
+            dt = datetime.fromtimestamp(created_at)
+            time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+            meta_parts.append(f"Time: {time_str}")
+        except Exception:
+            pass
+    
+    if meta_parts:
+        st.caption(" | ".join(meta_parts))
 
 
 def json_task_editor(input_schema: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
