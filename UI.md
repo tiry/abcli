@@ -83,6 +83,23 @@ The UI uses a consistent navigation pattern:
 - The currently selected page is highlighted
 - The UI maintains your state as you navigate between pages
 
+## Screenshots
+
+### Listing Agents
+
+<img src="doc/pics/ui-list.png" width="800px"/>
+
+
+### Edit Agent
+
+<img src="doc/pics/ui-edit.png" width="800px"/>
+
+
+### Chat / Invoke
+
+<img src="doc/pics/ui-chat.png" width="800px"/>
+
+
 ## Architecture and Design
 
 The UI is built with a clean separation between UI components and data access logic:

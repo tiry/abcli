@@ -32,7 +32,7 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
         st.text_area(
             "System Prompt",
             value=agent_config["systemPrompt"],
-            height=100,
+            height=400,
             disabled=True,
             label_visibility="collapsed",
         )

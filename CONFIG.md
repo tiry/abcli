@@ -120,14 +120,64 @@ The CLI will look for configuration files in the following order:
 2. `config.yaml` in the current directory
 3. `ab-cli.yaml` in the current directory
 
-## Validation
+## Configuration Validation and Testing
 
-You can validate your configuration using the `validate` command:
+### Validating Configuration
+
+You can validate your configuration file structure and values using the `validate` command:
 
 ```bash
-# Validate configuration
+# Validate configuration file
 ab validate
 
 # Show loaded configuration values
 ab validate --show-config
 ```
+
+**Example Output:**
+
+```
+Validating: config.yaml
+
+✅ Configuration is valid
+
+Configuration values:
+  API endpoint:     https://api.agentbuilder.experience.hyland.com/
+  Auth endpoint:    https://auth.iam.experience.hyland.com/idp/connect/token
+  Environment ID:   your-environment-id
+  Client ID:        your-cli...cret
+  Client secret:    ********************
+```
+
+### Testing Connectivity
+
+You can test both authentication and API connectivity using the `check` command:
+
+```bash
+# Test full connectivity (authentication + API)
+ab check
+
+# Test authentication only
+ab check --auth-only
+```
+
+**Example Output:**
+
+```
+=== Agent Builder API Connectivity Check ===
+
+Step 1/3: Loading configuration
+  Config file: config.yaml
+  ✓ Configuration loaded successfully
+
+Step 2/3: Testing authentication
+  ✓ Valid OAuth2 token received!
+
+Step 3/3: Testing API connectivity
+  ✓ API responded successfully!
+
+=== Check Complete ===
+  All API endpoints are working correctly!
+```
+
+For more details on configuration validation and testing, see the [Usage Guide](USAGE.md#configuration).
