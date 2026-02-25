@@ -162,7 +162,7 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
     table_data = []
     for agent in agents:
         agent_id = agent.get("id", "")
-        short_id = agent_id[:10] + "..." if len(agent_id) > 10 else agent_id
+        # short_id = agent_id[:10] + "..." if len(agent_id) > 10 else agent_id
 
         table_data.append(
             {
@@ -173,7 +173,6 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
                 "Created": agent.get("createdAt", ""),
                 "Updated": agent.get("modifiedAt", ""),
                 "Owner": agent.get("modifiedBy", ""),
-    
                 "_full_id": agent_id,  # Hidden for tooltip
             }
         )
