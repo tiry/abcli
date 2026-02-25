@@ -109,6 +109,12 @@ st.markdown(
        margin-bottom: 0px;
        padding:0px;
     }
+    .stMainBlockContainer {
+        padding-top: 2.6rem;
+        padding-bottom: 1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -116,7 +122,7 @@ st.markdown(
 
 # Use the local logo.png file instead of the external URL
 logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
-st.sidebar.image(logo_path, width=250)
+st.sidebar.image(logo_path, width=220)
 
 # Add UI configuration indicator in sidebar if in verbose mode
 if st.session_state.get("verbose", False):
@@ -197,7 +203,7 @@ if st.session_state.api_client:
     try:
         # Try to ping the API
         health = st.session_state.api_client.health_check()
-        st.sidebar.success("✅ Connected to API")
+        st.sidebar.success("✅ Connected to AB API")
     except Exception as e:
         st.sidebar.error(f"❌ API Error: {str(e)}")
 else:

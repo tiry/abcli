@@ -25,7 +25,7 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
     if "llmModelId" in agent_config:
         st.markdown("#### Model")
         st.info(agent_config["llmModelId"])
-        st.markdown("---")
+        #st.markdown("---")
 
     if "systemPrompt" in agent_config:
         st.markdown("#### System Prompt")
@@ -36,14 +36,14 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
             disabled=True,
             label_visibility="collapsed",
         )
-        st.markdown("---")
+        #st.markdown("---")
 
     # Display guardrails if available
     if "guardrails" in agent_config and agent_config["guardrails"]:
         st.markdown("#### Guardrails")
         for guardrail in agent_config["guardrails"]:
             st.markdown(f"- {guardrail}")
-        st.markdown("---")
+        #st.markdown("---")
 
     # Display tools as JSON if available
     if "tools" in agent_config:
@@ -53,19 +53,19 @@ def display_agent_config(agent_config: dict, verbose: bool = False) -> None:
             st.json(tools)
         else:  # If tools is empty
             st.info("No tools configured for this agent")
-        st.markdown("---")
+        #st.markdown("---")
 
     # Display inferenceConfig as JSON
     if "inferenceConfig" in agent_config:
         st.markdown("#### Inference Configuration")
         st.json(agent_config["inferenceConfig"])
-        st.markdown("---")
+        #st.markdown("---")
 
     # Display inputSchema if available (for task agents)
     if "inputSchema" in agent_config:
         st.markdown("#### Input Schema")
         st.json(agent_config["inputSchema"])
-        st.markdown("---")
+        #st.markdown("---")
 
     # Display RAG configuration parameters if available
     rag_params = {}

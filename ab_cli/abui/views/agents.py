@@ -166,10 +166,14 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
 
         table_data.append(
             {
-                "ID": short_id,
+                "ID": agent_id,
                 "Name": agent.get("name", "Unknown"),
                 "Type": agent.get("type", ""),
                 "Status": agent.get("status", ""),
+                "Created": agent.get("createdAt", ""),
+                "Updated": agent.get("modifiedAt", ""),
+                "Owner": agent.get("modifiedBy", ""),
+    
                 "_full_id": agent_id,  # Hidden for tooltip
             }
         )
@@ -178,8 +182,9 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
 
     # Display dataframe with row selection
     event = st.dataframe(
-        df[["ID", "Name", "Type", "Status"]],
+        df[["ID", "Name", "Type", "Status", "Owner", "Created", "Updated"]],
         width="stretch",
+        height="stretch",
         hide_index=True,
         on_select="rerun",
         selection_mode="single-row",
@@ -188,6 +193,9 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
             "Name": st.column_config.TextColumn("Name", width="medium"),
             "Type": st.column_config.TextColumn("Type", width="small"),
             "Status": st.column_config.TextColumn("Status", width="small"),
+            "Owner": st.column_config.TextColumn("Owner", width="small"),
+            "Created": st.column_config.DatetimeColumn("Created", width="small"),
+            "Updated": st.column_config.DatetimeColumn("Updated", width="small"),
         },
     )
 
