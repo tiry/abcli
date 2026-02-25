@@ -5,12 +5,33 @@ This document provides comprehensive documentation of all commands available in 
 ## Table of Contents
 
 - [Configuration](#configuration)
+  - [Config File Format](#config-file-format)
+  - [Required Settings](#required-settings)
+  - [Validating Configuration](#validating-configuration)
+  - [Interactive Configuration Wizard](#interactive-configuration-wizard)
+  - [Testing Connectivity](#testing-connectivity)
 - [Agent Management](#agent-management)
+  - [List Agents](#list-agents)
+  - [Get Agent](#get-agent)
+  - [Create Agent](#create-agent)
+  - [Update Agent](#update-agent)
+  - [Patch Agent](#patch-agent)
+  - [Delete Agent](#delete-agent)
+  - [List Agent Types](#list-agent-types)
 - [Version Management](#version-management)
+  - [List Versions](#list-versions)
+  - [Get Version](#get-version)
 - [Agent Invocation](#agent-invocation)
+  - [Chat Invocation](#chat-invocation)
+  - [Task Invocation](#task-invocation)
+  - [Interactive Mode](#interactive-mode)
 - [Resource Management](#resource-management)
+  - [List LLM Models](#list-llm-models)
+  - [List Guardrails](#list-guardrails)
+- [User Interface](#user-interface)
 - [Utility Commands](#utility-commands)
 - [Output Formats](#output-formats)
+- [Common Options](#common-options)
 
 ## Configuration
 
@@ -44,9 +65,19 @@ client_secret: your-client-secret
 # Validate configuration file
 ab validate
 
+# Validate specific config file
+ab validate --config /path/to/config.yaml
+
 # Show loaded configuration values
 ab validate --show-config
 ```
+
+**Command Parameters:**
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--config` | `-c` | Path to config file to validate |
+| `--show-config` | | Display configuration values after validation |
 
 **Example Output:**
 
@@ -61,6 +92,123 @@ Configuration values:
   Environment ID:   your-environment-id
   Client ID:        your-cli...cret
   Client secret:    ********************
+```
+
+### Interactive Configuration Wizard
+
+The `ab configure` command provides an interactive wizard to create or update your configuration file:
+
+```bash
+# Interactive configuration wizard (default location: ~/.ab-cli/config.yaml)
+ab configure
+
+# Specify custom output file
+ab configure --config /path/to/config.yaml
+# OR
+ab configure --output /path/to/config.yaml
+
+# Non-interactive mode with CLI parameters
+ab configure \
+  --client-id "your-client-id" \
+  --client-secret "your-secret" \
+  --api-endpoint "https://api.example.com/" \
+  --auth-endpoint "https://auth.example.com/oauth2/token" \
+  --force
+
+# Non-interactive with optional parameters
+ab configure \
+  --client-id "your-client-id" \
+  --client-secret "your-secret" \
+  --api-endpoint "https://api.example.com/" \
+  --auth-endpoint "https://auth.example.com/oauth2/token" \
+  --grant-type "client_credentials" \
+  --auth-scope "hxp" \
+  --auth-scope "openid" \
+  --force
+
+# Show current configuration
+ab configure --show
+```
+
+**Command Parameters:**
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--config` | `-c` | Target configuration file path |
+| `--output` | `-o` | Alternative syntax for target file path |
+| `--client-id` | | OAuth2 client ID |
+| `--client-secret` | | OAuth2 client secret |
+| `--api-endpoint` | | Agent Builder API endpoint URL |
+| `--auth-endpoint` | | OAuth2 authentication endpoint URL |
+| `--grant-type` | | OAuth2 grant type (default: client_credentials) |
+| `--auth-scope` | | OAuth2 scope (can be specified multiple times) |
+| `--show` | | Show current configuration and exit |
+| `--force` | | Overwrite existing file without confirmation |
+
+**Example Interactive Session:**
+
+```
+=== Agent Builder CLI Configuration ===
+
+This wizard will help you configure ab-cli.
+
+Configuration file: /Users/user/.ab-cli/config.yaml
+File exists: No
+
+Let's configure the required settings.
+
+Required Settings
+──────────────────────────────────────────────────
+
+Client ID
+  OAuth2 client ID for authentication
+> my-client-id
+
+Client Secret
+  OAuth2 client secret (input will be hidden)
+> ****************
+
+API Endpoint
+  Agent Builder API endpoint URL
+  Examples:
+    Production: https://api.agentbuilder.experience.hyland.com/
+    Development: https://api.agentbuilder.dev.experience.hyland.com/
+> https://api.agentbuilder.experience.hyland.com/
+
+Auth Endpoint
+  OAuth2 authentication endpoint URL
+  Examples:
+    Production: https://auth.iam.experience.hyland.com/idp/connect/token
+    Development: https://auth.iam.dev.experience.hyland.com/idp/connect/token
+> https://auth.iam.experience.hyland.com/idp/connect/token
+
+Optional Settings
+──────────────────────────────────────────────────
+
+Configure optional settings? [y/N]: n
+
+Configuration Summary
+──────────────────────────────────────────────────
+
+  ✓ Client ID:         my-clie***
+  ✓ Client Secret:     ****************
+  ✓ API Endpoint:      https://api.agentbuilder.experience.hyland.com/
+  ✓ Auth Endpoint:     https://auth.iam.experience.hyland.com/idp/connect/token
+  ✓ Grant Type:        client_credentials
+  ✓ Auth Scopes:       hxp
+
+Save configuration to /Users/user/.ab-cli/config.yaml? [Y/n]: y
+
+✓ Configuration saved successfully!
+
+✓ Configuration is valid.
+
+Next Steps:
+  1. Test your configuration: ab check
+  2. List available agents: ab agents list
+  3. Get help: ab --help
+
+Test the configuration now? [Y/n]: 
 ```
 
 ### Testing Connectivity
@@ -740,6 +888,122 @@ ab resources guardrails --format json
 │                                   │ content                    │
 │ HAIP-Hate-High                    │ Blocks extreme hate speech │
 └───────────────────────────────────┴──────────────────────────┘
+```
+
+## User Interface
+
+The Agent Builder CLI includes a web-based user interface built with Streamlit that provides a graphical alternative to the command-line interface.
+
+### Launching the UI
+
+```bash
+# Launch the web UI
+ab ui
+
+# Launch on a specific port
+ab ui --port 8080
+
+# Launch with a specific config file
+ab ui --config custom-config.yaml
+```
+
+**Command Parameters:**
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--port` | `-p` | Port to run the UI server on (default: 8501) |
+| `--config` | `-c` | Path to configuration file |
+
+The UI will open in your default web browser and provides:
+
+- **Agent Management**: Browse, create, edit, and delete agents
+- **Version Management**: View and manage agent versions
+- **Interactive Chat**: Chat with agents in real-time
+- **Resource Browsing**: Explore available models and guardrails
+- **Configuration**: Manage configuration through the UI
+
+For detailed information about the UI, including features, navigation, and testing, see [UI.md](UI.md).
+
+## Utility Commands
+
+### Check Connectivity
+
+Test API connectivity and authentication:
+
+```bash
+# Full connectivity check (authentication + API)
+ab check
+
+# Test authentication only
+ab check --auth-only
+
+# Use specific config file
+ab check --config /path/to/config.yaml
+```
+
+**Command Parameters:**
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--auth-only` | | Test only authentication, skip API connectivity check |
+| `--config` | `-c` | Path to configuration file to use |
+
+### Validate Configuration
+
+Validate configuration file format and required fields:
+
+```bash
+# Validate default config file
+ab validate
+
+# Validate specific config file
+ab validate --config /path/to/config.yaml
+
+# Show configuration values
+ab validate --show-config
+```
+
+**Command Parameters:**
+
+| Parameter | Short | Description |
+|-----------|-------|-------------|
+| `--config` | `-c` | Path to config file to validate |
+| `--show-config` | | Display configuration values after validation |
+
+### Configure
+
+Interactive wizard to create or update configuration:
+
+```bash
+# Interactive mode
+ab configure
+
+# Non-interactive mode
+ab configure \
+  --client-id "your-id" \
+  --client-secret "your-secret" \
+  --api-endpoint "https://api.example.com/" \
+  --auth-endpoint "https://auth.example.com/token" \
+  --force
+
+# Show current configuration
+ab configure --show
+```
+
+See [Interactive Configuration Wizard](#interactive-configuration-wizard) for full details and parameters.
+
+### Version Information
+
+```bash
+# Show CLI version
+ab --version
+
+# Show help
+ab --help
+
+# Show help for specific command
+ab agents --help
+ab invoke --help
 ```
 
 ## Output Formats

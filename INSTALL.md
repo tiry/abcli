@@ -83,18 +83,47 @@ cp config.example.yaml config.yaml
 
 ```yaml
 # Agent Builder API Configuration
-api_endpoint: https://your-api-endpoint.com/
-auth_endpoint: https://your-auth-endpoint.com/oauth2/token
-environment_id: your-environment-id
+# Required parameters
 client_id: your-client-id
 client_secret: your-client-secret
+
+# Optional parameters (defaults shown)
+api_endpoint: https://api.agentbuilder.experience.hyland.com/
+auth_endpoint: https://auth.iam.experience.hyland.com/idp/connect/token
+# environment_id is optional - it will be automatically retrieved if not specified
+# environment_id: your-environment-id
 ```
 
-3. Verify your configuration:
+**Required Parameters:**
+- `client_id`: OAuth2 client ID for authentication
+- `client_secret`: OAuth2 client secret for authentication
+
+**Optional Parameters:**
+- `environment_id`: HxP environment ID (automatically retrieved if not specified)
+- `api_endpoint`: Base URL for the Agent Builder API
+- `auth_endpoint`: OAuth2 token endpoint URL
+
+3. Validate your configuration:
 
 ```bash
+# Validate configuration file structure
+ab validate
+
+# Show loaded configuration values
 ab validate --show-config
 ```
+
+4. Test connectivity:
+
+```bash
+# Test authentication and API connectivity
+ab check
+
+# Test authentication only
+ab check --auth-only
+```
+
+For more configuration options and details, see [CONFIG.md](CONFIG.md).
 
 ## Building from Source
 
