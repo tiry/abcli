@@ -42,6 +42,12 @@ The Agents page allows you to:
 - Edit existing agents
 - Delete agents
 
+
+**Listing Agents**
+
+<img src="doc/pics/ui-list.png" width="800px"/>
+
+
 ### Agent Details
 
 The Agent Details page provides comprehensive information about a selected agent:
@@ -54,6 +60,11 @@ The Agent Details page provides comprehensive information about a selected agent
 Action buttons at the top of the page allow you to quickly:
 - Edit the agent
 - Start a chat with the agent
+
+**Edit Agent**
+
+<img src="doc/pics/ui-edit.png" width="800px"/>
+
 
 ### Chat Interface
 
@@ -76,6 +87,11 @@ The Chat page lets you interact with your agents through two types of interfaces
 
 Both interfaces display agent details and tools in expandable sections, making it easy to understand the agent's capabilities and configuration.
 
+**Chat / Invoke**
+
+<img src="doc/pics/ui-chat.png" width="800px"/>
+
+
 ## Navigation
 
 The UI uses a consistent navigation pattern:
@@ -83,21 +99,6 @@ The UI uses a consistent navigation pattern:
 - The currently selected page is highlighted
 - The UI maintains your state as you navigate between pages
 
-## Screenshots
-
-### Listing Agents
-
-<img src="doc/pics/ui-list.png" width="800px"/>
-
-
-### Edit Agent
-
-<img src="doc/pics/ui-edit.png" width="800px"/>
-
-
-### Chat / Invoke
-
-<img src="doc/pics/ui-chat.png" width="800px"/>
 
 
 ## Architecture and Design
