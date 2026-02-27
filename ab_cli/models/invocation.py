@@ -28,17 +28,17 @@ class InvokeRequest(BaseModel):
     max_tokens: int | None = None
 
     # Additional fields from API spec
-    hxql_query: str | None = Field(None, alias="hxqlQuery")
-    hybrid_search: bool | None = Field(None, alias="hybridSearch")
-    enable_deep_search: bool = Field(False, alias="enableDeepSearch")
+    hxql_query: str | None = Field(default=None, alias="hxqlQuery")
+    hybrid_search: bool | None = Field(default=None, alias="hybridSearch")
+    enable_deep_search: bool = Field(default=False, alias="enableDeepSearch")
     guardrails: list[str] | None = None
 
     # New RAG configuration parameters (OpenAPI v1.1)
-    adjacent_embedding_range: int | None = Field(None, alias="adjacentEmbeddingRange")
-    adjacent_embedding_merge: bool | None = Field(None, alias="adjacentEmbeddingMerge")
+    adjacent_embedding_range: int | None = Field(default=None, alias="adjacentEmbeddingRange")
+    adjacent_embedding_merge: bool | None = Field(default=None, alias="adjacentEmbeddingMerge")
     limit: int | None = None
-    reranker_enabled: bool | None = Field(None, alias="rerankerEnabled")
-    reranker_top_n: int | None = Field(None, alias="rerankerTopN")
+    reranker_enabled: bool | None = Field(default=None, alias="rerankerEnabled")
+    reranker_top_n: int | None = Field(default=None, alias="rerankerTopN")
 
     # Updated to use model_config instead of class Config (Pydantic v2 style)
     model_config = {

@@ -151,7 +151,7 @@ class ABSettings(BaseSettings):
             str,
             Field(
                 default="cli",
-                description="Data provider to use (cli or mock)",
+                description="Data provider to use (cli, mock, or direct)",
             ),
         ]
 
@@ -177,7 +177,7 @@ class ABSettings(BaseSettings):
             Raises:
                 ValueError: If the data provider is not allowed.
             """
-            allowed = {"cli", "mock"}
+            allowed = {"cli", "mock", "direct"}
             v_lower = v.lower()
             if v_lower not in allowed:
                 raise ValueError(f"Data provider must be one of {allowed}, got: {v}")

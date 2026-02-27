@@ -7,6 +7,7 @@ import streamlit as st
 
 from ab_cli.abui.providers.cli_data_provider import CLIDataProvider
 from ab_cli.abui.providers.data_provider import DataProvider
+from ab_cli.abui.providers.direct_data_provider import DirectDataProvider
 from ab_cli.abui.providers.mock_data_provider import MockDataProvider
 
 
@@ -25,8 +26,8 @@ def get_data_provider(config: Any) -> DataProvider:
     if "data_provider" in st.session_state:
         return st.session_state.data_provider
 
-    # Default to CLI provider if not specified
-    provider_type = "cli"
+    # Default to direct provider (faster, no subprocess overhead)
+    provider_type = "direct"
 
     # Check config for provider type
     # Handle Pydantic model where ui might be None
@@ -70,11 +71,19 @@ def get_data_provider(config: Any) -> DataProvider:
         if verbose:
             print("Using Mock data provider")
         provider = MockDataProvider(config)
-    else:
-        # Default to CLI provider
+    elif provider_type.lower() == "cli":
         if verbose:
-            print("Using CLI data provider")
+            print("Using CLI data provider (subprocess-based)")
         provider = CLIDataProvider(config, verbose)
+    elif provider_type.lower() == "direct":
+        if verbose:
+            print("Using Direct data provider (service layer, no subprocess)")
+        provider = DirectDataProvider()
+    else:
+        # Default to direct provider
+        if verbose:
+            print(f"Unknown provider type '{provider_type}', defaulting to Direct provider")
+        provider = DirectDataProvider()
 
     # Cache provider instance in session state
     st.session_state.data_provider = provider

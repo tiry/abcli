@@ -32,27 +32,30 @@ def show_chat_page() -> None:
     if st.session_state.selected_agent is None:
         st.subheader("Select an Agent to Chat With")
 
-        agent_names = [agent["name"] for agent in agents]
-        agent_ids = [agent["id"] for agent in agents]
+        agent_names = [agent.name for agent in agents]
+        agent_ids = [str(agent.id) for agent in agents]
 
         selected_index = st.selectbox(
             "Choose an agent:", range(len(agent_names)), format_func=lambda i: agent_names[i]
         )
 
         if st.button("Chat with Agent"):
-            selected_agent = next((a for a in agents if a["id"] == agent_ids[selected_index]), None)
+            selected_agent = next(
+                (a for a in agents if str(a.id) == agent_ids[selected_index]), None
+            )
             if selected_agent:
                 st.session_state.selected_agent = selected_agent
 
                 # Initialize chat history for this agent if needed
-                if selected_agent["id"] not in st.session_state.chat_history:
-                    st.session_state.chat_history[selected_agent["id"]] = []
+                agent_id_str = str(selected_agent.id)
+                if agent_id_str not in st.session_state.chat_history:
+                    st.session_state.chat_history[agent_id_str] = []
 
                 st.rerun()
     else:
         # Show chat interface with selected agent
         agent = st.session_state.selected_agent
-        agent_type = agent.get("type", "chat").lower()
+        agent_type = agent.type.lower() if agent.type else "chat"
 
         # Header with back button and View/Edit buttons
         col1, col2, col3 = st.columns([2, 1, 1])
@@ -86,10 +89,10 @@ def show_chat_page() -> None:
             show_chat_agent_interface(agent)
 
 
-def show_chat_agent_interface(agent: dict[str, Any]) -> None:
+def show_chat_agent_interface(agent: Any) -> None:
     """Show the chat interface for chat and RAG agents."""
-    agent_id = agent["id"]
-    st.subheader(f"Chat with {agent['name']}")
+    agent_id = str(agent.id)
+    st.subheader(f"Chat with {agent.name}")
 
     # Initialize or get chat history
     if agent_id not in st.session_state.chat_history:
@@ -113,35 +116,36 @@ def show_chat_agent_interface(agent: dict[str, Any]) -> None:
             data_provider = get_data_provider(config)
 
             try:
-                agent_type = agent.get("type", "chat")
+                agent_type_str = agent.type if agent.type else "chat"
                 response_data = data_provider.invoke_agent(
-                    agent_id, user_message, agent_type=agent_type
+                    str(agent.id), user_message, agent_type=agent_type_str
                 )
 
-                # Handle both dict (CLI provider) and str (mock provider) responses
-                if isinstance(response_data, dict):
-                    # Store full response structure with metadata AND full raw response
-                    chat_history.append(
-                        {
-                            "role": "assistant",
-                            "content": response_data.get("response_text", ""),
-                            "metadata": {
-                                "model": response_data.get("model"),
-                                "source_nodes": response_data.get("source_nodes", []),
-                                "rag_mode": response_data.get("rag_mode"),
-                                "created_at": response_data.get("created_at"),
-                            },
-                            "full_response": response_data,  # Store the complete response
-                        }
-                    )
-                else:
-                    # String response from mock provider
-                    chat_history.append(
-                        {
-                            "role": "assistant",
-                            "content": response_data,
-                        }
-                    )
+                # response_data is now an InvokeResponse Pydantic model
+                # Extract metadata - check both metadata and custom_outputs for sources
+                metadata_dict = {}
+                if response_data.metadata:
+                    metadata_dict.update(response_data.metadata)
+                if response_data.custom_outputs:
+                    metadata_dict.update(response_data.custom_outputs)
+
+                # Add other response fields to metadata
+                if response_data.model:
+                    metadata_dict["model"] = response_data.model
+                if response_data.rag_mode:
+                    metadata_dict["rag_mode"] = response_data.rag_mode
+                if response_data.created_at:
+                    metadata_dict["created_at"] = response_data.created_at
+
+                # Store full response structure
+                chat_history.append(
+                    {
+                        "role": "assistant",
+                        "content": response_data.response,
+                        "metadata": metadata_dict,
+                        "full_response": response_data.model_dump(),  # Convert to dict for storage
+                    }
+                )
 
                 # Force UI refresh
                 st.rerun()
@@ -149,34 +153,29 @@ def show_chat_agent_interface(agent: dict[str, Any]) -> None:
                 st.error(f"Error: {str(e)}")
 
 
-def show_task_agent_interface(agent: dict[str, Any]) -> None:
+def show_task_agent_interface(agent: Any) -> None:
     """Show the task interface for task agents."""
-    agent_id = agent["id"]
-    st.subheader(f"Task Agent: {agent['name']}")
+    agent_id = str(agent.id)
+    st.subheader(f"Task Agent: {agent.name}")
 
-    # Check if agent has full configuration loaded
-    agent_config = agent.get("agent_config", {})
-
-    # If agent_config is missing or empty, load full agent details
-    if not agent_config:
+    # For task agents, we need to load full agent details to get the config
+    # Agent from list doesn't have config, need to call get_agent()
+    agent_version = None
+    try:
         config = st.session_state.get("config", {})
         data_provider = get_data_provider(config)
 
-        try:
-            with st.spinner("Loading agent configuration..."):
-                full_agent = data_provider.get_agent(agent_id)
-                if full_agent and "agent_config" in full_agent:
-                    # Update session state with full agent details
-                    st.session_state.selected_agent = full_agent
-                    agent = full_agent
-                    agent_config = full_agent.get("agent_config", {})
-                else:
-                    st.error("Failed to load agent configuration")
-                    return
-        except Exception as e:
-            st.error(f"Error loading agent details: {e}")
-            return
+        with st.spinner("Loading agent configuration..."):
+            agent_version = data_provider.get_agent(agent_id)
+            if not agent_version:
+                st.error("Failed to load agent configuration")
+                return
+    except Exception as e:
+        st.error(f"Error loading agent details: {e}")
+        return
 
+    # Extract config from AgentVersion
+    agent_config = agent_version.version.config if agent_version.version.config else {}
     input_schema = agent_config.get("inputSchema", {})
 
     if not input_schema:
@@ -207,22 +206,21 @@ def show_task_agent_interface(agent: dict[str, Any]) -> None:
             {"role": "user", "content": json.dumps(task_input, indent=2)}
         )
 
-        # Simulate task execution (in a real app, call the API)
+        # Execute task
         config = st.session_state.get("config", {})
         data_provider = get_data_provider(config)
 
         try:
-            # Use the standard invoke_agent method for task agents with agent_type
-            agent_type = agent.get("type", "task")
+            agent_type_str = agent.type if agent.type else "task"
 
             with st.spinner("Executing task..."):
                 response = data_provider.invoke_agent(
-                    agent_id, json.dumps(task_input), agent_type=agent_type
+                    agent_id, json.dumps(task_input), agent_type=agent_type_str
                 )
 
-            # Add response to chat history
+            # Add response to chat history (response is InvokeResponse model)
             st.session_state.chat_history[agent_id].append(
-                {"role": "assistant", "content": response}
+                {"role": "assistant", "content": response.response}
             )
 
             # Force UI refresh
@@ -260,7 +258,12 @@ def display_chat_history(chat_history: list[dict[str, Any]]) -> None:
                     st.markdown(content)
 
                 # Display source citations if available
-                source_nodes = metadata.get("source_nodes", [])
+                # Check both camelCase and snake_case
+                source_nodes = (
+                    (metadata.get("sourceNodes") or metadata.get("source_nodes") or [])
+                    if isinstance(metadata, dict)
+                    else []
+                )
                 if source_nodes:
                     display_source_citations(source_nodes)
 
@@ -335,6 +338,9 @@ def display_message_metadata(metadata: dict[str, Any]) -> None:
     Args:
         metadata: Dictionary containing model, rag_mode, created_at, etc.
     """
+    if not isinstance(metadata, dict):
+        return
+
     model = metadata.get("model")
     rag_mode = metadata.get("rag_mode")
     created_at = metadata.get("created_at")
@@ -350,9 +356,12 @@ def display_message_metadata(metadata: dict[str, Any]) -> None:
         from datetime import datetime
 
         try:
-            dt = datetime.fromtimestamp(created_at)
-            time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-            meta_parts.append(f"Time: {time_str}")
+            if isinstance(created_at, (int, float)):
+                dt = datetime.fromtimestamp(created_at)
+                time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                meta_parts.append(f"Time: {time_str}")
+            elif isinstance(created_at, str):
+                meta_parts.append(f"Time: {created_at}")
         except Exception:
             pass
 
@@ -416,13 +425,20 @@ def json_task_editor(input_schema: dict[str, Any]) -> tuple[dict[str, Any] | Non
     return cast(dict[str, Any], task_input), False  # no errors
 
 
-def display_agent_tools(agent: dict[str, Any]) -> None:
+def display_agent_tools(agent: Any) -> None:
     """Display agent tools in an expandable section.
 
     Args:
-        agent: The agent data.
+        agent: The agent data (Agent or AgentVersion model).
     """
-    tools = agent.get("agent_config", {}).get("tools", [])
+    # Try to get tools from agent
+    # For Agent from list: no config available
+    # For AgentVersion: access via version.config
+    tools = []
+
+    # Check if this is an AgentVersion (has .version attribute)
+    if hasattr(agent, "version") and agent.version and agent.version.config:
+        tools = agent.version.config.get("tools", [])
 
     if tools:
         with st.expander("Agent Tools"):

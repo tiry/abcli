@@ -1,4 +1,8 @@
-"""CLI data provider implementation for the Agent Builder UI."""
+"""CLI data provider implementation for the Agent Builder UI.
+
+This provider calls CLI commands as subprocesses and converts JSON responses
+to strongly-typed Pydantic models for compatibility with the DataProvider interface.
+"""
 
 import contextlib
 import json
@@ -7,15 +11,27 @@ import shlex
 import subprocess
 import sys
 import tempfile
-from typing import Any, cast
+from typing import Any
 
 from ab_cli.abui.providers.data_provider import DataProvider
 from ab_cli.abui.utils.json_utils import extract_json_from_text
 from ab_cli.api.pagination import PaginatedResult
+from ab_cli.models.agent import Agent, AgentVersion, Pagination, Version, VersionList
+from ab_cli.models.invocation import InvokeResponse
+from ab_cli.models.resources import (
+    GuardrailList,
+    GuardrailModel,
+    LLMModel,
+    LLMModelList,
+)
 
 
 class CLIDataProvider(DataProvider):
-    """Data provider that uses CLI commands to access data."""
+    """Data provider that uses CLI commands to access data via subprocess.
+
+    This provider maintains backward compatibility by calling CLI commands
+    as subprocesses, while converting responses to strongly-typed models.
+    """
 
     def __init__(self, config: Any = None, verbose: bool = False):
         """Initialize with configuration and verbose flag.
@@ -26,11 +42,7 @@ class CLIDataProvider(DataProvider):
         """
         self.config = config
         self.verbose = verbose if verbose is not None else False
-        self.cache: dict[str, Any] = {
-            "agents": None,
-            "models": None,
-            "guardrails": None,
-        }
+        self.cache: dict[str, Any] = {}
 
     def _run_command(self, cmd_parts: list[str], use_cache: bool = True) -> dict[str, Any]:
         """Run a CLI command and parse its JSON output.
@@ -60,51 +72,29 @@ class CLIDataProvider(DataProvider):
 
         cmd.extend(cmd_parts)
 
-        # Execute command - use list form instead of shell to avoid buffering issues
-        # Properly quote the command for display (using shlex.quote for safety)
+        # Execute command
         cmd_str = " ".join(shlex.quote(str(part)) for part in cmd)
-        # print(f"[CLI Provider] Executing: {cmd_str}", file=sys.stderr)
 
         if self.verbose:
             print(f"[CLI Provider] Command list: {cmd}", file=sys.stderr)
 
         try:
-            # Use list form (no shell) with stdin=DEVNULL to prevent hanging
-            # This avoids shell buffering issues and is more secure
             result = subprocess.run(
-                cmd,  # Use list, not string
+                cmd,
                 capture_output=True,
                 text=True,
-                timeout=30,  # 30 second timeout
-                stdin=subprocess.DEVNULL,  # Prevent subprocess from waiting for stdin
-                check=False,  # Don't raise on non-zero exit
+                timeout=30,
+                stdin=subprocess.DEVNULL,
+                check=False,
             )
-            print(
-                f"[CLI Provider] Completed with return code: {result.returncode}", file=sys.stderr
-            )
-            if self.verbose and result.stdout:
-                print(f"[CLI Provider] Stdout length: {len(result.stdout)} chars", file=sys.stderr)
-            if self.verbose and result.stderr:
-                print(f"[CLI Provider] Stderr: {result.stderr[:200]}", file=sys.stderr)
+            if self.verbose:
+                print(
+                    f"[CLI Provider] Completed with return code: {result.returncode}",
+                    file=sys.stderr,
+                )
         except subprocess.TimeoutExpired as e:
             error_msg = f"Command timed out after 30 seconds: {cmd_str}"
             print(f"[CLI Provider] TIMEOUT: {error_msg}", file=sys.stderr)
-            if self.verbose:
-                stdout_str = e.stdout[:500] if e.stdout else "None"
-                stderr_str = e.stderr[:500] if e.stderr else "None"
-                # Handle bytes if needed
-                if isinstance(stdout_str, bytes):
-                    stdout_str = stdout_str.decode("utf-8", errors="replace")
-                if isinstance(stderr_str, bytes):
-                    stderr_str = stderr_str.decode("utf-8", errors="replace")
-                print(
-                    f"[CLI Provider] Partial stdout: {stdout_str}",
-                    file=sys.stderr,
-                )
-                print(
-                    f"[CLI Provider] Partial stderr: {stderr_str}",
-                    file=sys.stderr,
-                )
             raise RuntimeError(error_msg) from e
         except Exception as e:
             error_msg = f"Command execution failed: {cmd_str}"
@@ -114,108 +104,17 @@ class CLIDataProvider(DataProvider):
         # Process results
         if result.returncode == 0:
             try:
-                # Always use extract_json_from_text to handle debug output that may appear before/after JSON
-                # This is more robust than json.loads() as it strips non-JSON text
-                if self.verbose:
-                    print(
-                        f"[CLI Provider] Raw stdout ({len(result.stdout)} chars)", file=sys.stderr
-                    )
-                    print(f"[CLI Provider] Stdout preview: {result.stdout[:300]}", file=sys.stderr)
-
                 data = extract_json_from_text(result.stdout, self.verbose)
 
                 if data:
-                    if self.verbose:
-                        print(
-                            f"[CLI Provider] Successfully extracted JSON with keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}",
-                            file=sys.stderr,
-                        )
-                    # Update cache
                     if use_cache:
                         self.cache[cache_key] = data
-                    # Ensure we return a dict
                     result_dict: dict[str, Any] = data if isinstance(data, dict) else {}
                     return result_dict
                 else:
-                    print("[CLI Provider] No data extracted from stdout", file=sys.stderr)
-                    print(f"[CLI Provider] Stdout content: {result.stdout}", file=sys.stderr)
                     raise ValueError("Command returned empty or invalid JSON")
             except Exception as e:
                 print(f"[CLI Provider] Error parsing command output: {e}", file=sys.stderr)
-                if not self.verbose:
-                    print(f"[CLI Provider] Stdout: {result.stdout[:1000]}", file=sys.stderr)
-                raise
-
-        # Handle errors
-        error_msg = f"Command failed with code {result.returncode}: {result.stderr}"
-        if self.verbose:
-            print(error_msg)
-        raise RuntimeError(error_msg)
-
-    def _run_module_command(self, cmd_parts: list[str], use_cache: bool = True) -> dict[str, Any]:
-        """Run a command using Python module for more reliable execution.
-
-        Args:
-            cmd_parts: Command parts to add after the base CLI module command
-            use_cache: Whether to use cache for this command
-
-        Returns:
-            Parsed JSON result as a dictionary
-        """
-        # Check cache first
-        cache_key = " ".join(cmd_parts)
-        if use_cache and cache_key in self.cache:
-            if self.verbose:
-                print(f"Using cached result for: {cache_key}")
-            return self.cache[cache_key]
-
-        # Create module command (python -m ab_cli.cli.main ...)
-        module_cmd = ["python", "-m", "ab_cli.cli.main"]
-
-        if self.verbose:
-            module_cmd.append("--verbose")
-
-        if self.config and hasattr(self.config, "config_path") and self.config.config_path:
-            module_cmd.extend(["--config", str(self.config.config_path)])
-
-        module_cmd.extend(cmd_parts)
-
-        # Execute command
-        if self.verbose:
-            print(f"Executing module command: {' '.join(module_cmd)}")
-
-        result = subprocess.run(
-            module_cmd,
-            capture_output=True,
-            text=True,
-            cwd=os.path.join(
-                os.path.dirname(__file__), "../../../"
-            ),  # Run from the ab-cli directory
-        )
-
-        # Process results
-        if result.returncode == 0:
-            try:
-                if self.verbose:
-                    data = extract_json_from_text(result.stdout, self.verbose)
-                else:
-                    try:
-                        data = json.loads(result.stdout)
-                    except json.JSONDecodeError:
-                        data = extract_json_from_text(result.stdout, self.verbose)
-
-                if data:
-                    # Update cache
-                    if use_cache:
-                        self.cache[cache_key] = data
-                    # Ensure we return a dict
-                    result_dict: dict[str, Any] = data if isinstance(data, dict) else {}
-                    return result_dict
-                else:
-                    raise ValueError("Command returned empty or invalid JSON")
-            except Exception as e:
-                if self.verbose:
-                    print(f"Error parsing command output: {e}")
                 raise
 
         # Handle errors
@@ -226,33 +125,23 @@ class CLIDataProvider(DataProvider):
 
     def clear_cache(self) -> None:
         """Clear the command cache."""
-        self.cache = {
-            "agents": None,
-            "models": None,
-            "guardrails": None,
-        }
+        self.cache = {}
         if self.verbose:
             print("Cache cleared")
 
-    def get_agents(self) -> list[dict[str, Any]]:
+    def get_agents(self) -> list[Agent]:
         """Get list of available agents.
 
         Returns:
-            List of agent dictionaries
+            List of Agent objects with basic metadata.
         """
         try:
-            # Check cache first
-            if self.cache["agents"] is not None:
-                return cast(list[dict[str, Any]], self.cache["agents"])
-
-            # Run CLI command to get agents
             result = self._run_command(["agents", "list", "--format", "json"])
 
-            # Extract agents from result
             if "agents" in result:
-                agents = result["agents"]
-                self.cache["agents"] = agents
-                return cast(list[dict[str, Any]], agents)
+                agents_data = result["agents"]
+                # Convert to Agent models
+                return [Agent.model_validate(agent_data) for agent_data in agents_data]
             else:
                 return []
 
@@ -272,7 +161,6 @@ class CLIDataProvider(DataProvider):
             PaginatedResult with agents list and metadata
         """
         try:
-            # Use CLI command with pagination parameters (server-side pagination)
             cmd = [
                 "agents",
                 "list",
@@ -284,15 +172,15 @@ class CLIDataProvider(DataProvider):
                 "json",
             ]
 
-            # Don't use cache for paginated requests
             result = self._run_command(cmd, use_cache=True)
 
-            # Extract agents and pagination info
-            agents = result.get("agents", [])
+            agents_data = result.get("agents", [])
             pagination_info = result.get("pagination", {})
-            total_count = pagination_info.get("total_items", len(agents))
+            total_count = pagination_info.get("total_items", len(agents_data))
 
-            # Return paginated result
+            # Convert to Agent models
+            agents = [Agent.model_validate(agent_data) for agent_data in agents_data]
+
             return PaginatedResult(
                 agents=agents,
                 offset=offset,
@@ -306,7 +194,6 @@ class CLIDataProvider(DataProvider):
         except Exception as e:
             if self.verbose:
                 print(f"Error in get_agents_paginated: {e}")
-            # Return empty result on error
             return PaginatedResult(
                 agents=[],
                 offset=offset,
@@ -317,28 +204,23 @@ class CLIDataProvider(DataProvider):
                 name_pattern=None,
             )
 
-    def get_agent(self, agent_id: str) -> dict[str, Any] | None:
-        """Get agent details by ID.
+    def get_agent(self, agent_id: str) -> AgentVersion | None:
+        """Get agent details with current version configuration.
 
         Args:
-            agent_id: The ID of the agent to retrieve
+            agent_id: The ID of the agent to retrieve.
 
         Returns:
-            Agent dictionary or None if not found
+            AgentVersion object containing agent metadata and version config,
+            or None if agent not found.
         """
         try:
-            # Run CLI command to get agent
             result = self._run_command(["agents", "get", agent_id, "--format", "json"])
 
-            # Extract agent from result
-            if "agent" in result:
-                agent = result["agent"]
-
-                # Extract config from version if available
-                if "version" in result and "config" in result["version"]:
-                    agent["agent_config"] = result["version"]["config"]
-
-                return agent
+            if "agent" in result and "version" in result:
+                agent = Agent.model_validate(result["agent"])
+                version = Version.model_validate(result["version"])
+                return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
             else:
                 return None
 
@@ -347,31 +229,27 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in get_agent: {e}")
             return None
 
-    def create_agent(self, agent_data: dict[str, Any]) -> dict[str, Any]:
+    def create_agent(self, agent_data: dict) -> AgentVersion:
         """Create a new agent.
 
         Args:
-            agent_data: Dictionary containing agent data
+            agent_data: Dictionary containing agent creation data.
 
         Returns:
-            Created agent dictionary
+            AgentVersion object for the newly created agent.
         """
         try:
-            # Extract required fields
             name = agent_data.get("name")
             agent_type = agent_data.get("type", "chat")
             description = agent_data.get("description", "")
+            agent_config = agent_data.get("config", {})
 
-            # Extract config
-            agent_config = agent_data.get("agent_config", {})
-
-            # Create a temporary file for the config
+            # Create temporary file for config
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp_config:
                 json.dump(agent_config, tmp_config, indent=2)
                 tmp_config_path = tmp_config.name
 
             try:
-                # Run CLI command to create agent
                 cmd = [
                     "agents",
                     "create",
@@ -384,26 +262,26 @@ class CLIDataProvider(DataProvider):
                     "--agent-config",
                     tmp_config_path,
                     "--version-label",
-                    "v1.0",
+                    agent_data.get("version_label", "v1.0"),
                     "--notes",
-                    "Initial version",
+                    agent_data.get("notes", "Initial version"),
                     "--format",
                     "json",
                 ]
 
                 result = self._run_command(cmd, use_cache=False)
 
-                # Clear agents cache after creating a new agent
-                if "agents" in self.cache:
-                    self.cache["agents"] = None
+                # Clear cache
+                self.cache.clear()
 
-                # Extract agent from result
-                if "agent" in result:
-                    return result["agent"]
+                # Convert to AgentVersion
+                if "agent" in result and "version" in result:
+                    agent = Agent.model_validate(result["agent"])
+                    version = Version.model_validate(result["version"])
+                    return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
                 else:
-                    return result
+                    raise ValueError("Invalid response from create command")
             finally:
-                # Clean up temporary file
                 with contextlib.suppress(FileNotFoundError, PermissionError):
                     os.unlink(tmp_config_path)
 
@@ -412,27 +290,25 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in create_agent: {e}")
             raise
 
-    def update_agent(self, agent_id: str, agent_data: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing agent.
+    def update_agent(self, agent_id: str, agent_data: dict) -> AgentVersion:
+        """Update an existing agent (creates a new version).
 
         Args:
-            agent_id: The ID of the agent to update
-            agent_data: Dictionary containing agent data
+            agent_id: The ID of the agent to update.
+            agent_data: Dictionary containing update data.
 
         Returns:
-            Updated agent dictionary
+            AgentVersion object with the new version.
         """
         try:
-            # Extract config
-            agent_config = agent_data.get("agent_config", {})
+            agent_config = agent_data.get("config", {})
 
-            # Create a temporary file for the config
+            # Create temporary file for config
             with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp_config:
                 json.dump(agent_config, tmp_config, indent=2)
                 tmp_config_path = tmp_config.name
 
             try:
-                # Run CLI command to update agent
                 cmd = [
                     "agents",
                     "update",
@@ -449,17 +325,17 @@ class CLIDataProvider(DataProvider):
 
                 result = self._run_command(cmd, use_cache=False)
 
-                # Clear agents cache after updating an agent
-                if "agents" in self.cache:
-                    self.cache["agents"] = None
+                # Clear cache
+                self.cache.clear()
 
-                # Extract agent from result
-                if "agent" in result:
-                    return result["agent"]
+                # Convert to AgentVersion
+                if "agent" in result and "version" in result:
+                    agent = Agent.model_validate(result["agent"])
+                    version = Version.model_validate(result["version"])
+                    return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
                 else:
-                    return result
+                    raise ValueError("Invalid response from update command")
             finally:
-                # Clean up temporary file
                 with contextlib.suppress(FileNotFoundError, PermissionError):
                     os.unlink(tmp_config_path)
 
@@ -472,230 +348,98 @@ class CLIDataProvider(DataProvider):
         """Delete an agent by ID.
 
         Args:
-            agent_id: The ID of the agent to delete
+            agent_id: The ID of the agent to delete.
 
         Returns:
-            True if deleted successfully, False otherwise
+            True if deletion successful, False otherwise.
         """
         try:
-            # Run CLI command to delete agent
-            cmd = ["agents", "delete", agent_id, "--format", "json"]
-
+            cmd = ["agents", "delete", agent_id, "--yes", "--format", "json"]
             result = self._run_command(cmd, use_cache=False)
 
-            # Clear agents cache after deleting an agent
-            if "agents" in self.cache:
-                self.cache["agents"] = None
+            # Clear cache
+            self.cache.clear()
 
-            # Check result
-            return "success" in result and result["success"]
+            return result.get("success", False)
 
         except Exception as e:
             if self.verbose:
                 print(f"Error in delete_agent: {e}")
             return False
 
-    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> dict[str, Any]:
+    def invoke_agent(self, agent_id: str, message: str, agent_type: str = "chat") -> InvokeResponse:
         """Invoke an agent with a message.
 
         Args:
-            agent_id: The ID of the agent to invoke
-            message: The message to send (for chat) or task data JSON (for task)
-            agent_type: Type of agent ("chat", "rag", "tool", "task")
+            agent_id: The ID of the agent to invoke.
+            message: The message to send (for chat) or task data JSON (for task).
+            agent_type: Type of agent ("chat", "rag", "tool", "task").
 
         Returns:
-            Dict with structured response containing response_text, model, source_nodes, etc.
+            InvokeResponse containing the agent's response and metadata.
         """
         try:
-            # Quote the message to handle special characters
             quoted_message = shlex.quote(message)
 
-            # Build command based on agent type
             if agent_type == "task":
-                # Use invoke task with --task parameter
                 cmd = ["invoke", "task", agent_id, "--task", quoted_message, "--format", "json"]
             else:
-                # Use invoke chat with --message parameter (for chat, rag, tool)
                 cmd = ["invoke", "chat", agent_id, "--message", quoted_message, "--format", "json"]
 
             result = self._run_command(cmd, use_cache=False)
 
-            if self.verbose:
-                print(f"[DEBUG] invoke_agent result keys: {list(result.keys())}")
+            # Extract response text
+            answer = result.get("response", "")
+            if not answer and "output" in result:
+                # Try to extract from output array
+                output = result["output"]
+                if isinstance(output, list):
+                    for item in output:
+                        if item.get("type") == "message" and item.get("role") == "assistant":
+                            content = item.get("content", [])
+                            if isinstance(content, list):
+                                texts = []
+                                for content_item in content:
+                                    if content_item.get("type") == "output_text":
+                                        texts.append(content_item.get("text", ""))
+                                if texts:
+                                    answer = "\n".join(texts)
+                                    break
 
-            # Parse and structure the response
-            return self._parse_invoke_response(result)
+            # Build metadata
+            metadata = {
+                "model": result.get("model"),
+                "created_at": result.get("created_at"),
+                "usage": result.get("usage"),
+                "finish_reason": result.get("finish_reason"),
+            }
+
+            # Add custom outputs if available
+            if "custom_outputs" in result:
+                metadata.update(result["custom_outputs"])
+
+            return InvokeResponse(answer=answer, metadata=metadata)
 
         except Exception as e:
             if self.verbose:
                 print(f"Error in invoke_agent: {e}")
-            # Return error structure
-            return {
-                "response_text": f"Error invoking agent: {str(e)}",
-                "model": None,
-                "created_at": None,
-                "source_nodes": [],
-                "rag_mode": None,
-                "usage": None,
-                "finish_reason": None,
-                "metadata": None,
-            }
+            return InvokeResponse(
+                answer=f"Error invoking agent: {str(e)}",
+                metadata={},
+            )
 
-    def _parse_invoke_response(self, result: dict[str, Any]) -> dict[str, Any]:
-        """Parse invoke response into structured format.
-
-        Args:
-            result: Raw response from CLI command
-
-        Returns:
-            Structured response dict
-        """
-        # Extract response text - this is the ACTUAL agent response, not chunk text
-        response_text = result.get("response", "")
-
-        # If empty, try to extract from output array
-        if not response_text and "output" in result:
-            output = result["output"]
-            if isinstance(output, list):
-                for item in output:
-                    if item.get("type") == "message" and item.get("role") == "assistant":
-                        content = item.get("content", [])
-                        if isinstance(content, list):
-                            texts = []
-                            for content_item in content:
-                                if (
-                                    content_item.get("type") == "output_text"
-                                    and "text" in content_item
-                                ):
-                                    texts.append(content_item["text"])
-                            if texts:
-                                response_text = "\n".join(texts)
-                                break
-
-        # Extract metadata
-        model = result.get("model")
-        created_at = result.get("created_at")
-        usage = result.get("usage")
-        finish_reason = result.get("finish_reason")
-
-        # Extract source nodes from custom_outputs
-        source_nodes = []
-        rag_mode = None
-
-        custom_outputs = result.get("custom_outputs", {})
-        if custom_outputs:
-            source_nodes = custom_outputs.get("sourceNodes", [])
-            rag_mode = custom_outputs.get("ragMode")
-
-        if self.verbose:
-            print(f"[DEBUG] Parsed response_text length: {len(response_text)}")
-            print(f"[DEBUG] Found {len(source_nodes)} source nodes")
-            print(f"[DEBUG] Model: {model}, RAG mode: {rag_mode}")
-
-        return {
-            "response_text": response_text,
-            "model": model,
-            "created_at": created_at,
-            "source_nodes": source_nodes,
-            "rag_mode": rag_mode,
-            "usage": usage,
-            "finish_reason": finish_reason,
-            "metadata": custom_outputs,
-        }
-
-    def get_models(self) -> list[str]:
-        """Get list of available models.
-
-        Returns:
-            List of model names
-        """
-        try:
-            # Check cache first
-            if self.cache["models"] is not None:
-                return cast(list[str], self.cache["models"])
-
-            # Run CLI command to get models
-            result = self._run_command(["resources", "models", "--format", "json"])
-
-            # Extract models from result
-            if "models" in result:
-                models = [model["id"] for model in result["models"]]
-                self.cache["models"] = models
-                return models
-            else:
-                # Fallback to default models
-                fallback_models = [
-                    "gpt-4",
-                    "gpt-3.5-turbo",
-                    "claude-3",
-                    "claude-2",
-                    "mistral-large",
-                ]
-                self.cache["models"] = fallback_models
-                return fallback_models
-
-        except Exception as e:
-            if self.verbose:
-                print(f"Error in get_models: {e}")
-            # Fallback to default models
-            fallback_models = ["gpt-4", "gpt-3.5-turbo", "claude-3", "claude-2", "mistral-large"]
-            return fallback_models
-
-    def get_guardrails(self) -> list[str]:
-        """Get list of available guardrails.
-
-        Returns:
-            List of guardrail names
-        """
-        try:
-            # Check cache first
-            if self.cache["guardrails"] is not None:
-                return cast(list[str], self.cache["guardrails"])
-
-            # Run CLI command to get guardrails
-            result = self._run_command(["resources", "guardrails", "--format", "json"])
-
-            # Extract guardrails from result
-            if "guardrails" in result:
-                guardrails = [guardrail["name"] for guardrail in result["guardrails"]]
-                self.cache["guardrails"] = guardrails
-                return guardrails
-            else:
-                # Fallback to default guardrails
-                fallback_guardrails = [
-                    "moderation",
-                    "pii-detection",
-                    "sensitive-topics",
-                    "custom-policy-1",
-                ]
-                self.cache["guardrails"] = fallback_guardrails
-                return fallback_guardrails
-
-        except Exception as e:
-            if self.verbose:
-                print(f"Error in get_guardrails: {e}")
-            # Fallback to default guardrails
-            fallback_guardrails = [
-                "moderation",
-                "pii-detection",
-                "sensitive-topics",
-                "custom-policy-1",
-            ]
-            return fallback_guardrails
-
-    def get_versions(self, agent_id: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def get_versions(self, agent_id: str, limit: int = 50, offset: int = 0) -> VersionList:
         """Get list of versions for an agent.
 
         Args:
-            agent_id: The ID of the agent
-            limit: Maximum number of versions to return
-            offset: Offset for pagination
+            agent_id: The ID of the agent.
+            limit: Maximum number of versions to return.
+            offset: Offset for pagination.
 
         Returns:
-            Dictionary containing versions, pagination, and agent info
+            VersionList containing versions and pagination metadata.
         """
         try:
-            # Run CLI command to get versions
             cmd = [
                 "versions",
                 "list",
@@ -710,103 +454,180 @@ class CLIDataProvider(DataProvider):
 
             result = self._run_command(cmd, use_cache=False)
 
-            # Extract versions and pagination
-            versions_list = result.get("versions", [])
+            versions_data = result.get("versions", [])
             pagination_info = result.get("pagination", {})
-            agent_info = result.get("agent", {})
 
-            print(f"versions_list={versions_list}")
+            # Convert to Version models
+            versions = [Version.model_validate(v) for v in versions_data]
 
-            return {
-                "versions": [
-                    {
-                        "id": str(v.get("id")),
-                        "number": v.get("number"),
-                        "version_label": v.get("versionLabel"),
-                        "notes": v.get("notes"),
-                        "created_at": v.get("createdAt"),
-                        "created_by": v.get("createdBy"),
-                    }
-                    for v in versions_list
-                ],
-                "pagination": {
-                    "limit": pagination_info.get("limit", limit),
-                    "offset": pagination_info.get("offset", offset),
-                    "total_items": pagination_info.get("totalItems", len(versions_list)),
-                },
-                "agent": {
-                    "id": str(agent_info.get("id")),
-                    "name": agent_info.get("name"),
-                    "type": agent_info.get("type"),
-                }
-                if agent_info
-                else None,
-            }
+            # Create pagination
+            pagination = Pagination(
+                limit=pagination_info.get("limit", limit),
+                offset=pagination_info.get("offset", offset),
+                total_items=pagination_info.get("total_items", len(versions)),
+            )
+
+            return VersionList(versions=versions, pagination=pagination, agent=None)  # type: ignore[arg-type]
 
         except Exception as e:
             if self.verbose:
                 print(f"Error fetching versions: {e}")
-            return {
-                "versions": [],
-                "pagination": {"limit": limit, "offset": offset, "totalItems": 0},
-                "agent": None,
-            }
+            return VersionList(
+                versions=[],
+                pagination=Pagination(limit=limit, offset=offset, total_items=0),
+                agent=None,  # type: ignore[arg-type]
+            )
 
-    def get_version(self, agent_id: str, version_id: str) -> dict[str, Any] | None:
-        """Get details of a specific version.
+    def get_version(self, agent_id: str, version_id: str) -> Version | None:
+        """Get details of a specific version with full configuration.
 
         Args:
-            agent_id: The ID of the agent
-            version_id: The ID of the version (or "latest")
+            agent_id: The ID of the agent.
+            version_id: The ID of the version (or "latest").
 
         Returns:
-            Dictionary containing version details and agent info
+            Version object with full configuration, or None if not found.
         """
         try:
-            # Run CLI command to get version
             cmd = ["versions", "get", agent_id, version_id, "--format", "json"]
-
             result = self._run_command(cmd, use_cache=False)
 
-            # Extract version and agent info
-            version_info = result.get("version", {})
-            agent_info = result.get("agent", {})
-
-            if not version_info:
+            version_data = result.get("version")
+            if not version_data:
                 return None
 
-            return {
-                "version": {
-                    "id": str(version_info.get("id")),
-                    "number": version_info.get("number"),
-                    "version_label": version_info.get("version_label"),
-                    "notes": version_info.get("notes"),
-                    "created_at": version_info.get("created_at"),
-                    "created_by": version_info.get("created_by"),
-                    "config": version_info.get("config", {}),
-                },
-                "agent": {
-                    "id": str(agent_info.get("id")),
-                    "name": agent_info.get("name"),
-                    "type": agent_info.get("type"),
-                }
-                if agent_info
-                else None,
-            }
+            return Version.model_validate(version_data)
 
         except Exception as e:
             if self.verbose:
                 print(f"Error fetching version: {e}")
             return None
 
+    def get_models(self, limit: int = 100, offset: int = 0) -> LLMModelList:
+        """Get list of available LLM models.
+
+        Args:
+            limit: Maximum number of models to return.
+            offset: Offset for pagination.
+
+        Returns:
+            LLMModelList containing available models.
+        """
+        try:
+            cmd = [
+                "resources",
+                "models",
+                "--limit",
+                str(limit),
+                "--offset",
+                str(offset),
+                "--format",
+                "json",
+            ]
+            result = self._run_command(cmd)
+
+            models_data = result.get("models", [])
+            pagination_info = result.get("pagination", {})
+
+            # Convert to LLMModel objects
+            models = [LLMModel.model_validate(m) for m in models_data]
+
+            # Create pagination
+            pagination = Pagination(
+                limit=pagination_info.get("limit", limit),
+                offset=pagination_info.get("offset", offset),
+                total_items=pagination_info.get("total_items", len(models)),
+            )
+
+            return LLMModelList(models=models, pagination=pagination)
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error in get_models: {e}")
+            # Fallback
+            fallback_models = [
+                LLMModel(
+                    id="gpt-4",
+                    name="GPT-4",
+                    description="OpenAI GPT-4 model",
+                    badge="",
+                    metadata="",
+                    agent_types=["chat", "rag", "tool"],
+                    capabilities={},
+                    regions=["us-east-1"],
+                ),
+                LLMModel(
+                    id="gpt-3.5-turbo",
+                    name="GPT-3.5 Turbo",
+                    description="OpenAI GPT-3.5 Turbo model",
+                    badge="",
+                    metadata="",
+                    agent_types=["chat", "rag", "tool"],
+                    capabilities={},
+                    regions=["us-east-1"],
+                ),
+            ]
+            pagination = Pagination(limit=limit, offset=offset, total_items=len(fallback_models))
+            return LLMModelList(models=fallback_models, pagination=pagination)
+
+    def get_guardrails(self, limit: int = 100, offset: int = 0) -> GuardrailList:
+        """Get list of available guardrails.
+
+        Args:
+            limit: Maximum number of guardrails to return.
+            offset: Offset for pagination.
+
+        Returns:
+            GuardrailList containing available guardrails.
+        """
+        try:
+            cmd = [
+                "resources",
+                "guardrails",
+                "--limit",
+                str(limit),
+                "--offset",
+                str(offset),
+                "--format",
+                "json",
+            ]
+            result = self._run_command(cmd)
+
+            guardrails_data = result.get("guardrails", [])
+            pagination_info = result.get("pagination", {})
+
+            # Convert to GuardrailModel objects
+            guardrails = [GuardrailModel.model_validate(g) for g in guardrails_data]
+
+            # Create pagination
+            pagination = Pagination(
+                limit=pagination_info.get("limit", limit),
+                offset=pagination_info.get("offset", offset),
+                total_items=pagination_info.get("total_items", len(guardrails)),
+            )
+
+            return GuardrailList(guardrails=guardrails, pagination=pagination)
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error in get_guardrails: {e}")
+            # Fallback
+            fallback_guardrails = [
+                GuardrailModel(name="moderation", description="Content moderation"),
+                GuardrailModel(name="pii-detection", description="PII detection"),
+            ]
+            pagination = Pagination(
+                limit=limit, offset=offset, total_items=len(fallback_guardrails)
+            )
+            return GuardrailList(guardrails=fallback_guardrails, pagination=pagination)
+
     def health_check(self) -> bool:
         """Check if the data provider is healthy.
 
         Returns:
-            True if healthy, False otherwise
+            True if healthy, False otherwise.
         """
         try:
-            # Run CLI command to get version
             self._run_command(["--version"], use_cache=False)
             return True
         except Exception:

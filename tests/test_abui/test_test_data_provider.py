@@ -5,6 +5,7 @@ import os
 from typing import Dict, Any
 
 from tests.test_abui.test_data_provider import TestDataProvider
+from ab_cli.models.agent import Agent, AgentVersion
 
 
 def test_test_data_provider_initialization() -> None:
@@ -22,22 +23,17 @@ def test_test_data_provider_loads_test_data() -> None:
     assert len(agents) > 0
     assert isinstance(agents, list)
     
-    # Verify that the first agent has expected fields
+    # Verify that the first agent is an Agent model with expected fields
     agent = agents[0]
-    assert "id" in agent
-    assert "name" in agent
-    assert "type" in agent
-    assert "status" in agent
-    
-    # Test that we can get models
-    models = provider.get_models()
-    assert len(models) > 0
-    assert isinstance(models, list)
-    
-    # Test that we can get guardrails
-    guardrails = provider.get_guardrails()
-    assert len(guardrails) > 0
-    assert isinstance(guardrails, list)
+    assert isinstance(agent, Agent)
+    assert hasattr(agent, "id")
+    assert hasattr(agent, "name")
+    assert hasattr(agent, "type")
+    assert hasattr(agent, "status")
+    assert agent.id is not None
+    assert agent.name is not None
+    assert agent.type is not None
+    assert agent.status is not None
 
 
 def test_test_data_provider_call_tracking() -> None:
@@ -50,11 +46,9 @@ def test_test_data_provider_call_tracking() -> None:
     # Make some calls
     provider.get_agents()
     provider.get_agents()
-    provider.get_models()
     
     # Check call counts
     assert provider.get_call_count("get_agents") == 2
-    assert provider.get_call_count("get_models") == 1
     assert provider.get_call_count("get_guardrails") == 0
 
 
@@ -86,18 +80,33 @@ def test_test_data_provider_create_agent() -> None:
         "name": "Test Agent",
         "description": "A test agent",
         "type": "chat",
+        "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "12345678-1234-1234-1234-123456789012",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
+        "agent_config": {}
     }
     
-    # Create the agent
-    created_agent = provider.create_agent(new_agent)
+    # Create the agent - returns AgentVersion
+    created_agent_version = provider.create_agent(new_agent)
     
-    # Check that the agent was created with expected fields
-    assert "id" in created_agent
-    assert created_agent["name"] == "Test Agent"
-    assert created_agent["description"] == "A test agent"
-    assert created_agent["type"] == "chat"
-    assert "status" in created_agent
-    assert "created_at" in created_agent
+    # Check that it's an AgentVersion model
+    assert isinstance(created_agent_version, AgentVersion)
+    assert hasattr(created_agent_version, "agent")
+    assert hasattr(created_agent_version, "version")
+    
+    # Check the agent fields
+    agent = created_agent_version.agent
+    assert isinstance(agent, Agent)
+    assert agent.id is not None
+    assert agent.name == "Test Agent"
+    assert agent.description == "A test agent"
+    assert agent.type == "chat"
+    assert agent.status is not None
+    assert agent.created_at is not None
 
 
 def test_test_data_provider_update_agent() -> None:
@@ -106,23 +115,77 @@ def test_test_data_provider_update_agent() -> None:
     
     # Get the first agent
     agents = provider.get_agents()
-    agent_id = agents[0]["id"]
+    agent_id = str(agents[0].id)
     
     # Update data
     update_data = {
         "name": "Updated Agent Name",
         "description": "Updated description",
+        "config": {"test": "value"},
     }
     
-    # Update the agent
-    updated_agent = provider.update_agent(agent_id, update_data)
+    # Update the agent - returns AgentVersion
+    updated_agent_version = provider.update_agent(agent_id, update_data)
     
-    # Check that the agent was updated
-    assert updated_agent["name"] == "Updated Agent Name"
-    assert updated_agent["description"] == "Updated description"
+    # Check that it's an AgentVersion model
+    assert isinstance(updated_agent_version, AgentVersion)
     
-    # Check that the ID didn't change
-    assert updated_agent["id"] == agent_id
+    # Check that the agent ID didn't change
+    assert str(updated_agent_version.agent.id) == agent_id
     
-    # Check that modified_at was added
-    assert "modified_at" in updated_agent
+    # Check that the version was created
+    assert updated_agent_version.version is not None
+    assert updated_agent_version.version.number >= 1
+    assert updated_agent_version.version.created_at is not None
+
+
+def test_test_data_provider_get_agent() -> None:
+    """Test that the TestDataProvider can get a single agent with version."""
+    provider = TestDataProvider()
+    
+    # Get all agents
+    agents = provider.get_agents()
+    agent_id = str(agents[0].id)
+    
+    # Get specific agent
+    agent_version = provider.get_agent(agent_id)
+    
+    # Check that it's an AgentVersion model
+    assert agent_version is not None
+    assert isinstance(agent_version, AgentVersion)
+    assert isinstance(agent_version.agent, Agent)
+    assert str(agent_version.agent.id) == agent_id
+    assert agent_version.version is not None
+
+
+def test_test_data_provider_add_test_agent() -> None:
+    """Test that the TestDataProvider can add test agents."""
+    provider = TestDataProvider()
+    
+    # Add a test agent
+    test_agent_data = {
+        "id": "12345678-abcd-1234-abcd-123456789abc",
+        "name": "Test Agent",
+        "description": "A test agent",
+        "type": "chat",
+        "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "12345678-abcd-1234-abcd-123456789abd",
+        "created_at": "2024-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2024-01-01T00:00:00Z",
+        "modified_by": "test",
+        "agent_config": {}
+    }
+    
+    added_agent = provider.add_test_agent(test_agent_data)
+    
+    # Check that it's an Agent model
+    assert isinstance(added_agent, Agent)
+    assert str(added_agent.id) == "12345678-abcd-1234-abcd-123456789abc"
+    assert added_agent.name == "Test Agent"
+    
+    # Verify we can retrieve it
+    retrieved_agent_version = provider.get_agent("12345678-abcd-1234-abcd-123456789abc")
+    assert retrieved_agent_version is not None
+    assert str(retrieved_agent_version.agent.id) == "12345678-abcd-1234-abcd-123456789abc"

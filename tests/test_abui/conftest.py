@@ -1,13 +1,45 @@
 """Test fixtures for Agent Builder UI tests."""
 
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from ab_cli.models.agent import Agent, AgentVersion, VersionConfig
 from tests.test_abui.test_data_provider import TestDataProvider
 from tests.test_abui.streamlit_test_wrapper import show_agents_page_test
+
+
+def convert_test_agent_to_pydantic(agent_dict: Dict[str, Any]) -> AgentVersion:
+    """Convert a test agent dictionary to AgentVersion Pydantic model.
+    
+    Args:
+        agent_dict: Dictionary containing agent data with agent_config
+        
+    Returns:
+        AgentVersion Pydantic model
+    """
+    # Extract agent_config from dict
+    agent_config = agent_dict.pop("agent_config", {})
+    
+    # Create Agent model from remaining fields
+    agent = Agent.model_validate(agent_dict)
+    
+    # Create VersionConfig model with config
+    version = VersionConfig(
+        id=str(uuid.uuid4()),
+        number=1,
+        version_label="v1.0.0",
+        notes="Test version",
+        created_at=agent.created_at,
+        created_by=agent.created_by,
+        config=agent_config,
+    )
+    
+    # Return AgentVersion combining both
+    return AgentVersion(agent=agent, version=version)
 
 
 def assert_element_contains_text(app_test: AppTest, element_type: str, text: str) -> bool:
@@ -97,12 +129,17 @@ def test_agent() -> Dict[str, Any]:
         Test agent dictionary with configuration
     """
     return {
-        "id": "test-agent-1",
+        "id": "12345678-1234-1234-1234-123456789999",
         "name": "Test Chat Agent",
         "description": "A test chat agent for UI testing",
         "type": "chat",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": None,
         "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test-user",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test-user",
         "agent_config": {
             "llmModelId": "test-model-1",
             "systemPrompt": "You are a test chat assistant.",

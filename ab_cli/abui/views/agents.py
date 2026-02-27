@@ -1,6 +1,6 @@
 """Agents page for the Agent Builder UI."""
 
-from typing import Any, cast
+from typing import Any
 
 import streamlit as st
 
@@ -120,22 +120,22 @@ def show_agent_list() -> None:
         st.error(f"Error loading agents: {e}")
 
 
-def display_agents_as_cards(agents: list[dict[str, Any]]) -> None:
+def display_agents_as_cards(agents: list[Any]) -> None:
     """Display agents in a grid with cards.
 
     Args:
-        agents: List of agent dictionaries
+        agents: List of Agent model objects
     """
     # Display agents in a grid with cards
     col1, col2 = st.columns(2)
 
     for i, agent in enumerate(agents):
         with col1 if i % 2 == 0 else col2:
-            # Use our agent card component
+            # Use our agent card component (pass model directly)
             agent_card(agent)
 
 
-def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
+def display_agents_as_table(agents: list[Any]) -> None:
     """Display agents in a clean dataframe table with action buttons."""
     import pandas as pd
 
@@ -158,21 +158,21 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
         unsafe_allow_html=True,
     )
 
-    # Prepare data for table
+    # Prepare data for table (agents are now Pydantic models)
     table_data = []
     for agent in agents:
-        agent_id = agent.get("id", "")
-        # short_id = agent_id[:10] + "..." if len(agent_id) > 10 else agent_id
+        # Convert UUID to string for DataFrame compatibility
+        agent_id = str(agent.id)
 
         table_data.append(
             {
                 "ID": agent_id,
-                "Name": agent.get("name", "Unknown"),
-                "Type": agent.get("type", ""),
-                "Status": agent.get("status", ""),
-                "Created": agent.get("createdAt", ""),
-                "Updated": agent.get("modifiedAt", ""),
-                "Owner": agent.get("modifiedBy", ""),
+                "Name": agent.name,
+                "Type": agent.type,
+                "Status": agent.status,
+                "Created": getattr(agent, "created_at", ""),
+                "Updated": getattr(agent, "modified_at", ""),
+                "Owner": getattr(agent, "modified_by", ""),
                 "_full_id": agent_id,  # Hidden for tooltip
             }
         )
@@ -206,7 +206,7 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
     if has_selection:
         selected_idx = event.selection.rows[0]  # type: ignore[attr-defined]
         selected_agent = agents[selected_idx]
-        selected_display = f"{selected_agent.get('name')} ({table_data[selected_idx]['ID']})"
+        selected_display = f"{selected_agent.name} ({table_data[selected_idx]['ID']})"
 
     # Always show action buttons, but disabled when no selection
     st.markdown("---")
@@ -220,7 +220,7 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
             st.button("📋 Copy Full ID", use_container_width=True, disabled=not has_selection)
             and selected_agent
         ):
-            full_id = selected_agent.get("id", "")
+            full_id = selected_agent.id
             st.toast(f"ID: {full_id}", icon="📋")
 
     with col2:
@@ -237,7 +237,10 @@ def display_agents_as_table(agents: list[dict[str, Any]]) -> None:
             st.button("✏️ Edit Agent", use_container_width=True, disabled=not has_selection)
             and selected_agent
         ):
-            st.session_state.agent_to_edit = selected_agent
+            # Fetch full AgentVersion for editing (not just Agent summary)
+            provider = st.session_state.data_provider
+            full_agent = provider.get_agent(str(selected_agent.id))
+            st.session_state.agent_to_edit = full_agent
             st.session_state.nav_intent = "EditAgent"
             st.rerun()
 
@@ -255,7 +258,7 @@ def get_models() -> list[str]:
     """Get the list of available models using the data provider.
 
     Returns:
-        List of model names
+        List of model IDs
     """
     # Get data provider from session state
     provider = st.session_state.get("data_provider")
@@ -263,8 +266,9 @@ def get_models() -> list[str]:
         return []
 
     with st.spinner("Loading models..."):
-        models = provider.get_models()
-        return cast(list[str], models)
+        models_list = provider.get_models()
+        # Extract model IDs from LLMModelList
+        return [model.id for model in models_list.models]
 
 
 def get_guardrails() -> list[str]:
@@ -279,5 +283,6 @@ def get_guardrails() -> list[str]:
         return []
 
     with st.spinner("Loading guardrails..."):
-        guardrails = provider.get_guardrails()
-        return cast(list[str], guardrails)
+        guardrails_list = provider.get_guardrails()
+        # Extract guardrail names from GuardrailList
+        return [guardrail.name for guardrail in guardrails_list.guardrails]

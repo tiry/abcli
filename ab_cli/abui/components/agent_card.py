@@ -1,32 +1,31 @@
 """Agent card component for displaying agent information."""
 
-from typing import Any
-
 import streamlit as st
 
+from ab_cli.models.agent import Agent
 
-def agent_card(agent: dict[str, Any]) -> None:
+
+def agent_card(agent: Agent) -> None:
     """Display an agent card with its information and actions.
 
     Args:
-        agent: Dictionary containing agent information
+        agent: Agent model object
     """
     with st.container():
         # Create a card-like container with a border
-        # Handle potential missing fields safely
-        agent_name = agent.get("name", "Unnamed Agent")
+        agent_name = agent.name
         with st.expander(f"{agent_name}", expanded=True):
-            # Display agent information - removing model and created fields
-            st.markdown(f"**ID:** {agent.get('id', 'Unknown')}")
-            st.markdown(f"**Type:** {agent.get('type', 'Unknown')}")
+            # Display agent information
+            st.markdown(f"**ID:** {agent.id}")
+            st.markdown(f"**Type:** {agent.type}")
 
-            if agent.get("description"):
-                st.markdown(f"**Description:** {agent['description']}")
+            if agent.description:
+                st.markdown(f"**Description:** {agent.description}")
 
             # Add action buttons - Chat, Details, and Edit
             col1, col2, col3 = st.columns(3)
-            # Get agent ID, defaulting to a unique string if missing
-            agent_id = agent.get("id", f"unknown-{id(agent)}")
+            # Use agent ID for button keys
+            agent_id = str(agent.id)
 
             with col1:
                 if st.button("Chat", key=f"chat_{agent_id}"):

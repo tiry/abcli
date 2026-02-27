@@ -1,10 +1,12 @@
 """Extended tests for the agent details view."""
 
+import copy
 import pytest
 from streamlit.testing.v1 import AppTest
 
 from tests.test_abui.streamlit_test_wrapper import show_agent_details_page_test
 from tests.test_abui.test_data_provider import TestDataProvider
+from tests.test_abui.conftest import convert_test_agent_to_pydantic
 
 
 def test_agent_details_tabs_navigation(test_agent: dict, test_data_provider: TestDataProvider) -> None:
@@ -13,7 +15,7 @@ def test_agent_details_tabs_navigation(test_agent: dict, test_data_provider: Tes
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state - Use the full agent object, not just the ID
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -59,12 +61,17 @@ def test_agent_details_chat_agent_display(test_data_provider: TestDataProvider) 
     """Test that the agent details page displays a chat agent correctly."""
     # Create a chat agent for testing
     chat_agent = {
-        "id": "test-chat-agent",
+        "id": "dddddddd-eeee-ffff-aaaa-444444444444",
         "name": "Test Chat Agent",
         "description": "A test chat agent",
         "type": "chat",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "dddddddd-eeee-ffff-aaaa-444444444445",
         "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         "agent_config": {
             "llmModelId": "test-model-1",
             "systemPrompt": "You are a chat assistant.",
@@ -85,7 +92,7 @@ def test_agent_details_chat_agent_display(test_data_provider: TestDataProvider) 
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = chat_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(chat_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -111,12 +118,17 @@ def test_agent_details_task_agent_display(test_data_provider: TestDataProvider) 
     """Test that the agent details page displays a task agent correctly."""
     # Create a task agent for testing
     task_agent = {
-        "id": "test-task-agent",
+        "id": "eeeeeeee-ffff-aaaa-bbbb-555555555555",
         "name": "Test Task Agent",
         "description": "A test task agent",
         "type": "task",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "eeeeeeee-ffff-aaaa-bbbb-555555555556",
         "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         "agent_config": {
             "llmModelId": "test-model-1",
             "systemPrompt": "You are a task assistant.",
@@ -146,7 +158,7 @@ def test_agent_details_task_agent_display(test_data_provider: TestDataProvider) 
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = task_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(task_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -172,12 +184,17 @@ def test_agent_details_agent_with_tools_display(test_data_provider: TestDataProv
     """Test that the agent details page displays an agent with tools correctly."""
     # Create an agent with tools for testing
     agent_with_tools = {
-        "id": "test-tools-agent",
+        "id": "ffffffff-aaaa-bbbb-cccc-666666666666",
         "name": "Test Tools Agent",
         "description": "A test agent with tools",
         "type": "chat",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "ffffffff-aaaa-bbbb-cccc-666666666667",
         "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         "agent_config": {
             "llmModelId": "test-model-1",
             "systemPrompt": "You are an assistant with tools.",
@@ -211,7 +228,7 @@ def test_agent_details_agent_with_tools_display(test_data_provider: TestDataProv
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = agent_with_tools
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(agent_with_tools))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -239,7 +256,7 @@ def test_agent_details_action_buttons(test_agent: dict, test_data_provider: Test
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -274,7 +291,7 @@ def test_agent_details_verbose_mode(test_agent: dict, test_data_provider: TestDa
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -300,12 +317,17 @@ def test_agent_details_missing_config(test_data_provider: TestDataProvider) -> N
     """Test that the agent details page handles missing config gracefully."""
     # Create an agent with minimal config for testing
     minimal_agent = {
-        "id": "test-minimal-agent",
+        "id": "aaaabbbb-cccc-dddd-eeee-777777777777",
         "name": "Test Minimal Agent",
         "description": "A test agent with minimal config",
         "type": "chat",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "aaaabbbb-cccc-dddd-eeee-777777777778",
         "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         # No agent_config field
     }
     
@@ -316,7 +338,7 @@ def test_agent_details_missing_config(test_data_provider: TestDataProvider) -> N
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = minimal_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(minimal_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -346,9 +368,18 @@ def test_agent_details_error_handling(test_data_provider: TestDataProvider) -> N
     """Test that the agent details page handles errors gracefully."""
     # Create an agent for testing
     test_agent = {
-        "id": "test-agent-error",
+        "id": "bbbbcccc-dddd-eeee-ffff-888888888888",
         "name": "Test Agent Error",
         "description": "An agent for error testing",
+        "type": "chat",
+        "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "bbbbcccc-dddd-eeee-ffff-888888888889",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
+        "agent_config": {}
     }
     
     # Add the test agent
@@ -358,7 +389,7 @@ def test_agent_details_error_handling(test_data_provider: TestDataProvider) -> N
     app_test = AppTest.from_function(show_agent_details_page_test)
     
     # Set up the session state
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider

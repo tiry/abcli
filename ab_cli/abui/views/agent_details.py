@@ -126,7 +126,12 @@ def show_agent_details_page() -> None:
     # Check if we have an agent to view
     agent_to_view = st.session_state.get("agent_to_view")
     if verbose and agent_to_view:
-        print(f"  agent_to_view: {agent_to_view.get('id')} - {agent_to_view.get('name')}")
+        # Handle both Agent and AgentVersion types
+        agent_id = agent_to_view.agent.id if hasattr(agent_to_view, "agent") else agent_to_view.id
+        agent_name = (
+            agent_to_view.agent.name if hasattr(agent_to_view, "agent") else agent_to_view.name
+        )
+        print(f"  agent_to_view: {agent_id} - {agent_name}")
     elif verbose:
         print("  agent_to_view: None")
 
@@ -149,11 +154,14 @@ def show_agent_details_page() -> None:
 
     provider = st.session_state.data_provider
 
+    # Get agent name for display (handle both Agent and AgentVersion)
+    agent_name = agent_to_view.agent.name if hasattr(agent_to_view, "agent") else agent_to_view.name
+
     # Display agent header information
     title_col, json_col, action_col1, action_col2 = st.columns([3, 1, 1, 1])
 
     with title_col:
-        st.title(f"Agent Details: {agent_to_view.get('name', 'Unknown Agent')}")
+        st.title(f"Agent Details: {agent_name}")
 
     with json_col:
         if st.button("📄 JSON", use_container_width=True):
@@ -168,46 +176,47 @@ def show_agent_details_page() -> None:
         if st.button("Edit Agent", use_container_width=True):
             if verbose:
                 print("[DEBUG] Edit button clicked")
-            # Make sure to include the agent_config when navigating to edit
-            if "agent_config" in agent_to_view:
-                # agent_config is already part of agent_to_view
+
+            # Check if this is AgentVersion (has config) or just Agent (no config)
+            has_config = (
+                hasattr(agent_to_view, "version")
+                and agent_to_view.version
+                and agent_to_view.version.config
+            )
+
+            if has_config:
+                # AgentVersion with config available
                 st.session_state.agent_to_edit = agent_to_view
-                # Store navigation intent
                 st.session_state.nav_intent = "EditAgent"
                 if verbose:
                     print("[DEBUG] Set nav_intent to EditAgent")
                     print("[DEBUG] agent_to_edit set with config")
-                # Give some time for the session state to update
                 time.sleep(0.1)
                 st.rerun()
             else:
-                # We need to fetch the configuration first
+                # Agent without config - need to fetch
                 with st.spinner("Fetching agent configuration..."):
                     try:
-                        # Get agent details from data provider
-                        agent_data = provider.get_agent(agent_to_view["id"])
+                        agent_id = str(
+                            agent_to_view.agent.id
+                            if hasattr(agent_to_view, "agent")
+                            else agent_to_view.id
+                        )
+                        agent_data = provider.get_agent(agent_id)
 
                         if not agent_data:
                             st.error("Failed to get agent configuration")
                             return
 
-                        # Check if agent_config is available
-                        if "agent_config" in agent_data:
-                            # Update agent_to_view with the full data including config
-                            st.session_state.agent_to_view = agent_data
-                            st.session_state.agent_to_edit = agent_data
-                            # Store navigation intent
-                            st.session_state.nav_intent = "EditAgent"
-                            if verbose:
-                                print(
-                                    "[DEBUG] Setting nav_intent to EditAgent after fetching config"
-                                )
-                                print("[DEBUG] Set agent_to_edit with fetched config")
-                            # Give some time for the session state to update
-                            time.sleep(0.1)
-                            st.rerun()
-                        else:
-                            st.error("Configuration not found in agent data")
+                        # Update session state with full AgentVersion data
+                        st.session_state.agent_to_view = agent_data
+                        st.session_state.agent_to_edit = agent_data
+                        st.session_state.nav_intent = "EditAgent"
+                        if verbose:
+                            print("[DEBUG] Setting nav_intent to EditAgent after fetching config")
+                            print("[DEBUG] Set agent_to_edit with fetched config")
+                        time.sleep(0.1)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Error fetching agent configuration: {e}")
 
@@ -236,25 +245,35 @@ def show_agent_details_page() -> None:
 
     # General Info tab
     with tabs[0]:
-        # Show agent basic information (without the heading)
-        st.markdown(f"**ID:** `{agent_to_view.get('id', 'Unknown')}`")
-        st.markdown(f"**Name:** {agent_to_view.get('name', 'Unknown')}")
-        st.markdown(f"**Type:** {agent_to_view.get('type', 'Unknown')}")
-        st.markdown(f"**Status:** {agent_to_view.get('status', 'Unknown')}")
-        if agent_to_view.get("description"):
-            st.markdown(f"**Description:** {agent_to_view.get('description')}")
+        # Get agent object (handle both Agent and AgentVersion)
+        agent_obj = agent_to_view.agent if hasattr(agent_to_view, "agent") else agent_to_view
 
-        if agent_to_view.get("created_at"):
-            st.markdown(f"**Created:** {agent_to_view.get('created_at')}")
-        if agent_to_view.get("modified_at"):
-            st.markdown(f"**Last Modified:** {agent_to_view.get('modified_at')}")
+        # Show agent basic information
+        st.markdown(f"**ID:** `{agent_obj.id}`")
+        st.markdown(f"**Name:** {agent_obj.name}")
+        st.markdown(f"**Type:** {agent_obj.type}")
+        st.markdown(f"**Status:** {agent_obj.status}")
+        if agent_obj.description:
+            st.markdown(f"**Description:** {agent_obj.description}")
+
+        if hasattr(agent_obj, "created_at") and agent_obj.created_at:
+            st.markdown(f"**Created:** {agent_obj.created_at}")
+        if hasattr(agent_obj, "modified_at") and agent_obj.modified_at:
+            st.markdown(f"**Last Modified:** {agent_obj.modified_at}")
 
     # Configuration tab
     with tabs[1]:
         st.markdown("### Agent Configuration")
 
-        # Try to get configuration from agent_to_view
-        agent_config = agent_to_view.get("agent_config", {})
+        # Check if this is AgentVersion with config
+        agent_config = None
+        if (
+            hasattr(agent_to_view, "version")
+            and agent_to_view.version
+            and agent_to_view.version.config
+        ):
+            agent_config = agent_to_view.version.config
+
         if agent_config:
             # Display the configuration in a structured way
             display_agent_config(agent_config, verbose=verbose)
@@ -262,16 +281,20 @@ def show_agent_details_page() -> None:
             # Fetch detailed agent information including configuration
             with st.spinner("Fetching agent configuration..."):
                 try:
-                    # Get agent details from data provider
-                    agent_data = provider.get_agent(agent_to_view["id"])
+                    agent_id = str(
+                        agent_to_view.agent.id
+                        if hasattr(agent_to_view, "agent")
+                        else agent_to_view.id
+                    )
+                    agent_data = provider.get_agent(agent_id)
 
                     if not agent_data:
                         st.error("Failed to get agent details")
                         return
 
-                    # Check if agent_config is available
-                    if "agent_config" in agent_data:
-                        agent_config = agent_data["agent_config"]
+                    # AgentVersion has .version.config
+                    if agent_data.version and agent_data.version.config:
+                        agent_config = agent_data.version.config
 
                         # Store in the session state for future reference
                         st.session_state.agent_to_view = agent_data
@@ -290,16 +313,21 @@ def show_agent_details_page() -> None:
 
         with st.spinner("Loading versions..."):
             try:
-                versions_data = provider.get_versions(agent_to_view["id"])
+                agent_id = str(
+                    agent_to_view.agent.id if hasattr(agent_to_view, "agent") else agent_to_view.id
+                )
+                versions_data = provider.get_versions(agent_id)
 
-                if not versions_data or not versions_data.get("versions"):
+                if not versions_data or not versions_data.versions:
                     st.info("No versions found for this agent")
                 else:
-                    versions = versions_data["versions"]
-                    pagination = versions_data["pagination"]
+                    versions = versions_data.versions
+                    pagination = versions_data.pagination
 
                     # Display version count
-                    total_versions = pagination.get("total_items", len(versions))
+                    total_versions = (
+                        pagination.total_items if pagination.total_items else len(versions)
+                    )
                     st.info(f"Total versions: {total_versions}")
 
                     # Prepare data for table display
@@ -307,25 +335,29 @@ def show_agent_details_page() -> None:
 
                     table_data = []
                     for version in versions:
-                        created_at = version.get("created_at") or "N/A"
-                        if created_at and created_at != "N/A" and len(created_at) > 10:
-                            created_at = created_at[:10]
+                        created_at = (
+                            version.created_at
+                            if hasattr(version, "created_at") and version.created_at
+                            else "N/A"
+                        )
+                        if created_at and created_at != "N/A" and len(str(created_at)) > 10:
+                            created_at = str(created_at)[:10]
 
                         # Truncate notes if too long
-                        notes = version.get("notes") or ""
+                        notes = version.notes if hasattr(version, "notes") and version.notes else ""
                         if notes and len(notes) > 50:
                             notes = notes[:47] + "..."
 
                         table_data.append(
                             {
-                                "Number": version["number"],
-                                "Label": version.get("versionLabel")
-                                or version.get("version_label")
-                                or "-",
+                                "Number": version.number,
+                                "Label": version.version_label if version.version_label else "-",
                                 "Notes": notes if notes else "-",
                                 "Created": created_at,
-                                "Created By": version.get("created_by") or "N/A",
-                                "Version ID": version["id"],
+                                "Created By": version.created_by
+                                if hasattr(version, "created_by") and version.created_by
+                                else "N/A",
+                                "Version ID": str(version.id),
                             }
                         )
 
@@ -354,10 +386,8 @@ def show_agent_details_page() -> None:
 
                     # Dropdown to select version
                     version_options = {
-                        f"Version {v['number']}"
-                        + (f" - {v.get('version_label')}" if v.get("version_label") else ""): v[
-                            "id"
-                        ]
+                        f"Version {v.number}"
+                        + (f" - {v.version_label}" if v.version_label else ""): str(v.id)
                         for v in versions
                     }
 
@@ -368,11 +398,13 @@ def show_agent_details_page() -> None:
 
                     if st.button("View Configuration"):
                         selected_version_id = version_options[selected_version_label]
-                        version_details = provider.get_version(
-                            agent_to_view["id"], selected_version_id
-                        )
-                        if version_details and "version" in version_details:
-                            st.json(version_details["version"]["config"])
+                        version_details = provider.get_version(agent_id, selected_version_id)
+                        if (
+                            version_details
+                            and version_details.version
+                            and version_details.version.config
+                        ):
+                            st.json(version_details.version.config)
                         else:
                             st.error("Failed to load version configuration")
 

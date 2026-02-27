@@ -1,9 +1,11 @@
 """Additional tests for the agent creation and editing validation."""
 
+import copy
 import json
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from tests.test_abui.conftest import convert_test_agent_to_pydantic
 from tests.test_abui.streamlit_test_wrapper import (
     show_create_agent_page_test,
     show_edit_agent_page_test
@@ -62,7 +64,7 @@ def test_agent_editing_json_validation(test_agent: dict, test_data_provider: Tes
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -95,7 +97,7 @@ def test_agent_editing_updates_agent(test_agent: dict, test_data_provider: TestD
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -171,7 +173,7 @@ def test_agent_editing_expander_contents(test_agent: dict, test_data_provider: T
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -198,7 +200,7 @@ def test_agent_editing_error_handling(test_agent: dict, test_data_provider: Test
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider

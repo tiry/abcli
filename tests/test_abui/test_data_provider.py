@@ -2,11 +2,12 @@
 
 import json
 import os
-import pytest
-from typing import Any, Optional, cast
-from datetime import datetime, UTC
+import uuid
+from typing import Any, Optional
+from datetime import datetime, UTC, timezone
 
 from ab_cli.abui.providers.mock_data_provider import MockDataProvider
+from ab_cli.models.agent import Agent, AgentVersion, VersionConfig
 
 
 # Use pytest's collection configuration to prevent collection
@@ -53,8 +54,11 @@ class MockTestingProvider(MockDataProvider):
             "get_guardrails": False,
         }
 
-        # In-memory test agents dictionary
-        self.test_agents: dict[str, dict[str, Any]] = {}
+        # In-memory test agents dictionary - now storing Agent models
+        self.test_agents: dict[str, Agent] = {}
+        
+        # In-memory test agent versions dictionary - storing AgentVersion models
+        self.test_agent_versions: dict[str, AgentVersion] = {}
     
     def _track_method_call(self, method_name: str) -> None:
         """Track a method call for later assertions.
@@ -96,14 +100,14 @@ class MockTestingProvider(MockDataProvider):
         for method in self.simulate_error:
             self.simulate_error[method] = False
 
-    def add_test_agent(self, agent_data: dict[str, Any]) -> dict[str, Any]:
+    def add_test_agent(self, agent_data: dict[str, Any]) -> Agent:
         """Add a test agent that will be retrievable through get_agent.
         
         Args:
             agent_data: Dictionary containing agent data. Must include an 'id' key.
             
         Returns:
-            The agent data that was added
+            The Agent model that was added
             
         Raises:
             ValueError: If agent_data doesn't include an 'id' key
@@ -113,21 +117,44 @@ class MockTestingProvider(MockDataProvider):
         
         self._track_method_call("add_test_agent")
         
-        agent_id = agent_data["id"]
-        self.test_agents[agent_id] = agent_data
+        # Convert dict to Agent model
+        agent = Agent.model_validate(agent_data)
+        agent_id = str(agent.id)
         
-        # Also add to agents list if it's not there already
-        agents = super().get_agents()
-        if not any(agent["id"] == agent_id for agent in agents):
-            agents.append(agent_data)
+        self.test_agents[agent_id] = agent
         
-        return agent_data
+        # Also add to agents list in cache if it's not there already
+        if "agents" in self.cache:
+            agents = self.cache["agents"]
+            if not any(str(a.id) == agent_id for a in agents):
+                agents.append(agent)
+        
+        return agent
     
-    def get_agents(self) -> list[dict[str, Any]]:
+    def add_test_agent_version(self, agent_version: AgentVersion) -> AgentVersion:
+        """Add a test agent version that will be retrievable through get_agent.
+        
+        Args:
+            agent_version: AgentVersion model containing agent and version data.
+            
+        Returns:
+            The AgentVersion model that was added
+        """
+        self._track_method_call("add_test_agent_version")
+        
+        agent_id = str(agent_version.agent.id)
+        self.test_agent_versions[agent_id] = agent_version
+        
+        # Also add the agent to test_agents
+        self.test_agents[agent_id] = agent_version.agent
+        
+        return agent_version
+    
+    def get_agents(self) -> list[Agent]:
         """Get list of available agents with test tracking.
         
         Returns:
-            List of agent dictionaries
+            List of Agent Pydantic models
             
         Raises:
             RuntimeError: If error simulation is enabled
@@ -140,20 +167,20 @@ class MockTestingProvider(MockDataProvider):
         agents = super().get_agents()
         
         # Add any test agents to the list
-        for agent_id, agent_data in self.test_agents.items():
-            if not any(agent["id"] == agent_id for agent in agents):
-                agents.append(agent_data)
+        for agent_id, agent in self.test_agents.items():
+            if not any(str(a.id) == agent_id for a in agents):
+                agents.append(agent)
         
         return agents
     
-    def get_agent(self, agent_id: str) -> dict[str, Any] | None:
+    def get_agent(self, agent_id: str) -> AgentVersion | None:
         """Get agent details by ID with test tracking.
         
         Args:
             agent_id: The ID of the agent to retrieve
             
         Returns:
-            Agent dictionary or None if not found
+            AgentVersion Pydantic model or None if not found
             
         Raises:
             RuntimeError: If error simulation is enabled
@@ -163,20 +190,38 @@ class MockTestingProvider(MockDataProvider):
         if self.simulate_error["get_agent"]:
             raise RuntimeError(f"Simulated error in get_agent for ID {agent_id}")
         
-        # Check test agents first
+        # Check test agent versions first
+        if agent_id in self.test_agent_versions:
+            return self.test_agent_versions[agent_id]
+        
+        # Check if we have a test agent without version
         if agent_id in self.test_agents:
-            return self.test_agents[agent_id]
+            agent = self.test_agents[agent_id]
+            # Create a default version for the test agent
+            default_version = VersionConfig(
+                id=str(uuid.uuid4()),
+                number=1,
+                version_label="v1.0.0",
+                notes="Test version",
+                created_at=agent.created_at,
+                created_by=agent.created_by,
+                config={},
+            )
+            agent_version = AgentVersion(agent=agent, version=default_version)
+            # Cache it for future use
+            self.test_agent_versions[agent_id] = agent_version
+            return agent_version
         
         return super().get_agent(agent_id)
     
-    def create_agent(self, agent_data: dict[str, Any]) -> dict[str, Any]:
+    def create_agent(self, agent_data: dict[str, Any]) -> AgentVersion:
         """Create a new agent with test tracking.
         
         Args:
             agent_data: Dictionary containing agent data
             
         Returns:
-            Created agent dictionary
+            Created AgentVersion Pydantic model
             
         Raises:
             RuntimeError: If error simulation is enabled
@@ -186,9 +231,16 @@ class MockTestingProvider(MockDataProvider):
         if self.simulate_error["create_agent"]:
             raise RuntimeError("Simulated error in create_agent")
         
-        return super().create_agent(agent_data)
+        agent_version = super().create_agent(agent_data)
+        
+        # Store in test agents for tracking
+        agent_id = str(agent_version.agent.id)
+        self.test_agents[agent_id] = agent_version.agent
+        self.test_agent_versions[agent_id] = agent_version
+        
+        return agent_version
     
-    def update_agent(self, agent_id: str, agent_data: dict[str, Any]) -> dict[str, Any]:
+    def update_agent(self, agent_id: str, agent_data: dict[str, Any]) -> AgentVersion:
         """Update an existing agent with test tracking.
         
         Args:
@@ -196,7 +248,7 @@ class MockTestingProvider(MockDataProvider):
             agent_data: Dictionary containing agent data
             
         Returns:
-            Updated agent dictionary
+            Updated AgentVersion Pydantic model
             
         Raises:
             RuntimeError: If error simulation is enabled
@@ -206,13 +258,34 @@ class MockTestingProvider(MockDataProvider):
         if self.simulate_error["update_agent"]:
             raise RuntimeError(f"Simulated error in update_agent for ID {agent_id}")
         
-        # Update in test agents if it exists there
+        # First check test agents
         if agent_id in self.test_agents:
-            updated_agent = {**self.test_agents[agent_id], **agent_data}
-            updated_agent["modified_at"] = datetime.now(UTC).isoformat() + "Z"
-            self.test_agents[agent_id] = updated_agent
-            return updated_agent
+            agent = self.test_agents[agent_id]
+            
+            # Create new version
+            created_at = datetime.now(timezone.utc).isoformat() + "Z"
+            
+            # Determine next version number
+            next_number = 1
+            if agent_id in self.test_agent_versions:
+                next_number = self.test_agent_versions[agent_id].version.number + 1
+            
+            new_version = VersionConfig(
+                id=str(uuid.uuid4()),
+                number=next_number,
+                version_label=agent_data.get("version_label", f"v1.0.{next_number}"),
+                notes=agent_data.get("notes", f"Version {next_number}"),
+                created_at=created_at,
+                created_by="system",
+                config=agent_data.get("config", {}),
+            )
+            
+            agent_version = AgentVersion(agent=agent, version=new_version)
+            self.test_agent_versions[agent_id] = agent_version
+            
+            return agent_version
         
+        # Try parent's update_agent which will check cached agents
         return super().update_agent(agent_id, agent_data)
     
     def delete_agent(self, agent_id: str) -> bool:
@@ -233,63 +306,19 @@ class MockTestingProvider(MockDataProvider):
             raise RuntimeError(f"Simulated error in delete_agent for ID {agent_id}")
         
         # Delete from test agents if it exists there
+        deleted = False
         if agent_id in self.test_agents:
             del self.test_agents[agent_id]
+            deleted = True
+        
+        if agent_id in self.test_agent_versions:
+            del self.test_agent_versions[agent_id]
+            deleted = True
+        
+        if deleted:
             return True
         
         return super().delete_agent(agent_id)
-    
-    def invoke_agent(self, agent_id: str, message: str) -> str:
-        """Invoke an agent with a message with test tracking.
-        
-        Args:
-            agent_id: The ID of the agent to invoke
-            message: The message to send to the agent
-            
-        Returns:
-            Agent response as text
-            
-        Raises:
-            RuntimeError: If error simulation is enabled
-        """
-        self._track_method_call("invoke_agent")
-        
-        if self.simulate_error["invoke_agent"]:
-            raise RuntimeError(f"Simulated error in invoke_agent for ID {agent_id}")
-        
-        return super().invoke_agent(agent_id, message)
-    
-    def get_models(self) -> list[str]:
-        """Get list of available models with test tracking.
-        
-        Returns:
-            List of model names
-            
-        Raises:
-            RuntimeError: If error simulation is enabled
-        """
-        self._track_method_call("get_models")
-        
-        if self.simulate_error["get_models"]:
-            raise RuntimeError("Simulated error in get_models")
-        
-        return super().get_models()
-    
-    def get_guardrails(self) -> list[str]:
-        """Get list of available guardrails with test tracking.
-        
-        Returns:
-            List of guardrail names
-            
-        Raises:
-            RuntimeError: If error simulation is enabled
-        """
-        self._track_method_call("get_guardrails")
-        
-        if self.simulate_error["get_guardrails"]:
-            raise RuntimeError("Simulated error in get_guardrails")
-        
-        return super().get_guardrails()
     
     def clear_cache(self) -> None:
         """Clear the data cache with test tracking."""

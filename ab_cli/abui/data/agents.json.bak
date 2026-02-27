@@ -1,13 +1,13 @@
 {
   "agents": [
     {
-      "id": "12345678-1234-1234-1234-123456789003",
+      "id": "12345678-1234-1234-1234-123456789abc",
       "name": "Demo Agent",
       "description": "A sample agent for demonstration purposes",
       "type": "chat",
       "status": "CREATED",
       "isGlobalAgent": false,
-      "currentVersionId": "aaaaaaaa-1234-1234-1234-123456789003",
+      "currentVersionId": "aaaaaaaa-1234-1234-1234-123456789abc",
       "created_at": "2026-02-11T10:00:00Z",
       "created_by": "system",
       "modified_at": "2026-02-11T10:00:00Z",
@@ -66,13 +66,13 @@
       }
     },
     {
-      "id": "12345678-1234-1234-1234-123456789003",
+      "id": "12345678-1234-1234-1234-123456789abc",
       "name": "RAG Assistant",
       "description": "Retrieval-augmented generation agent",
       "type": "rag",
       "status": "CREATED",
       "isGlobalAgent": false,
-      "currentVersionId": "aaaaaaaa-1234-1234-1234-123456789003",
+      "currentVersionId": "aaaaaaaa-1234-1234-1234-123456789abc",
       "created_at": "2026-02-12T09:15:00Z",
       "created_by": "system",
       "modified_at": "2026-02-12T09:15:00Z",

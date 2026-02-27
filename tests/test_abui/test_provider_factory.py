@@ -117,8 +117,13 @@ def test_provider_basic_methods():
     agents = provider.get_agents()
     assert isinstance(agents, list)
     
+    # get_models() and get_guardrails() return model objects, not lists
+    from ab_cli.models.resources import LLMModelList, GuardrailList
+    
     models = provider.get_models()
-    assert isinstance(models, list)
+    assert isinstance(models, LLMModelList)
+    assert isinstance(models.models, list)
     
     guardrails = provider.get_guardrails()
-    assert isinstance(guardrails, list)
+    assert isinstance(guardrails, GuardrailList)
+    assert isinstance(guardrails.guardrails, list)

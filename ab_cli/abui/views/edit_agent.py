@@ -45,7 +45,11 @@ def show_edit_agent_page() -> None:
     agent_to_edit = st.session_state.get("agent_to_edit")
 
     if agent_to_edit:
-        st.title(f"Edit Agent: {agent_to_edit.get('name', 'Unknown Agent')}")
+        # agent_to_edit is AgentVersion with .agent and .version
+        agent_name = (
+            agent_to_edit.agent.name if hasattr(agent_to_edit, "agent") else "Unknown Agent"
+        )
+        st.title(f"Edit Agent: {agent_name}")
     else:
         st.title("Create New Agent")
 
@@ -69,23 +73,20 @@ def show_edit_agent_page() -> None:
     if agent_to_edit:
         with st.spinner("Loading latest agent configuration..."):
             try:
-                fresh_agent_data = provider.get_agent(agent_to_edit["id"])
-                if fresh_agent_data and "agent_config" in fresh_agent_data:
-                    # Update with fresh data
+                agent_id = str(agent_to_edit.agent.id)
+                fresh_agent_data = provider.get_agent(agent_id)
+                if fresh_agent_data:
+                    # Update with fresh data (AgentVersion object)
                     agent_to_edit = fresh_agent_data
                     st.session_state.agent_to_edit = fresh_agent_data
 
                     # Also fetch version history to get the actual latest version label
                     try:
-                        versions_data = provider.get_versions(
-                            agent_to_edit["id"], limit=100, offset=0
-                        )
-                        if versions_data and versions_data.get("versions"):
-                            # Get the first version (most recent due to API ordering)
-                            latest_version = versions_data["versions"][-1]
-                            latest_version_label = latest_version.get(
-                                "versionLabel"
-                            ) or latest_version.get("version_label")
+                        versions_data = provider.get_versions(agent_id, limit=100, offset=0)
+                        if versions_data and versions_data.versions:
+                            # Get the last version (most recent)
+                            latest_version = versions_data.versions[-1]
+                            latest_version_label = latest_version.version_label
                     except Exception:
                         # If we can't get versions, fall back to agent's version_label
                         pass
@@ -101,15 +102,15 @@ def show_edit_agent_page() -> None:
     guardrails = get_guardrails()
 
     # Get default values from agent_to_edit if available
-    default_name = agent_to_edit.get("name", "") if agent_to_edit else ""
-    default_description = agent_to_edit.get("description", "") if agent_to_edit else ""
-    default_type = agent_to_edit.get("type", "chat") if agent_to_edit else "chat"
-    default_model = agent_to_edit.get("model", "") if agent_to_edit else ""
+    default_name = agent_to_edit.agent.name if agent_to_edit else ""
+    default_description = agent_to_edit.agent.description if agent_to_edit else ""
+    default_type = agent_to_edit.agent.type if agent_to_edit else "chat"
+    default_model = ""
 
     # Extract configuration values if we're editing
     agent_config: dict[str, Any] = {}
-    if agent_to_edit and "agent_config" in agent_to_edit:
-        agent_config = agent_to_edit["agent_config"]
+    if agent_to_edit and agent_to_edit.version.config:
+        agent_config = agent_to_edit.version.config
 
     # Get model from agent_config if available, otherwise use default_model
     current_model = agent_config.get("llmModelId", default_model)
@@ -259,11 +260,8 @@ def show_edit_agent_page() -> None:
             st.markdown("### Version Information")
 
             # Use latest version from version history if available, otherwise fall back to agent's version_label
-            current_version = latest_version_label or agent_to_edit.get("versionLabel", "v1.0")
+            current_version = latest_version_label or agent_to_edit.version.version_label or "v1.0"
 
-            print(f"latest_version_label={latest_version_label}")
-
-            print(f"current_version = {current_version} agent_to_edit= {agent_to_edit}")
             default_new_version = increment_version(current_version)
 
             col_v1, col_v2 = st.columns(2)
@@ -362,7 +360,8 @@ def show_edit_agent_page() -> None:
                         try:
                             if agent_to_edit:
                                 # Update existing agent
-                                provider.update_agent(agent_to_edit["id"], agent_data)
+                                agent_id = str(agent_to_edit.agent.id)
+                                provider.update_agent(agent_id, agent_data)
                             else:
                                 # Create new agent
                                 provider.create_agent(agent_data)

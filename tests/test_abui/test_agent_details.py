@@ -1,15 +1,47 @@
 """Tests for the agent details view using the actual agent_details.py implementation."""
 
 from typing import Any, Dict
+import uuid
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from ab_cli.models.agent import Agent, AgentVersion, VersionConfig
 from tests.test_abui.streamlit_test_wrapper import (
     display_agent_config_test,
     show_agent_details_page_test,
 )
 from tests.test_abui.test_data_provider import TestDataProvider
+
+
+def convert_test_agent_to_pydantic(test_agent_dict: Dict[str, Any]) -> AgentVersion:
+    """Convert test agent dictionary to AgentVersion Pydantic model.
+    
+    Args:
+        test_agent_dict: Dictionary containing agent data with 'agent_config' key
+        
+    Returns:
+        AgentVersion Pydantic model
+    """
+    # Extract agent config from the dict
+    agent_config = test_agent_dict.pop("agent_config", {})
+    
+    # Create Agent model from dict (excluding agent_config)
+    agent = Agent.model_validate(test_agent_dict)
+    
+    # Create Version model with config
+    version = VersionConfig(
+        id=uuid.uuid4(),
+        number=1,
+        version_label="v1.0.0",
+        notes="Test version",
+        created_at=test_agent_dict.get("created_at", "2026-01-01T00:00:00Z"),
+        created_by=test_agent_dict.get("created_by", "test-user"),
+        config=agent_config
+    )
+    
+    # Create and return AgentVersion
+    return AgentVersion(agent=agent, version=version)
 
 
 def test_display_agent_config_basic():
@@ -144,8 +176,11 @@ def test_show_agent_details_page_basic(test_agent, test_data_provider):
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -158,11 +193,11 @@ def test_show_agent_details_page_basic(test_agent, test_data_provider):
     title_displayed = False
     if hasattr(app_test, "title"):
         for title in app_test.title:
-            if hasattr(title, "value") and test_agent["name"] in title.value:
+            if hasattr(title, "value") and agent_version.agent.name in title.value:
                 title_displayed = True
                 break
     
-    assert title_displayed, f"Agent name '{test_agent['name']}' not displayed in title"
+    assert title_displayed, f"Agent name '{agent_version.agent.name}' not displayed in title"
     
     # Verify tabs were created
     assert hasattr(app_test, "tabs"), "Tabs not created in the UI"
@@ -224,8 +259,18 @@ def test_show_agent_details_page_error_fetching_config(test_data_provider):
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
-    # Create a minimal agent without configuration
-    minimal_agent = {"id": "test-agent-error", "name": "Test Error Agent"}
+    # Create a minimal agent as Pydantic model
+    minimal_agent_dict = {
+        "id": "12345678-1234-1234-1234-123456789998",
+        "type": "chat",
+        "name": "Test Error Agent",
+        "description": "Test error agent",
+        "status": "CREATED",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test-user",
+        "modified_at": "2026-01-01T00:00:00Z",
+    }
+    minimal_agent = Agent.model_validate(minimal_agent_dict)
     
     # Set up error simulation in the data provider
     test_data_provider.set_error_simulation("get_agent")
@@ -256,8 +301,11 @@ def test_show_agent_details_page_edit_navigation(test_agent, test_data_provider)
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -281,7 +329,7 @@ def test_show_agent_details_page_edit_navigation(test_agent, test_data_provider)
     
     # When using AppTest, we need to manually set up expected behaviors
     # since clicking the button doesn't trigger JavaScript events
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = agent_version
     
     # Re-run to process navigation
     app_test.run()
@@ -289,7 +337,7 @@ def test_show_agent_details_page_edit_navigation(test_agent, test_data_provider)
     # Verify navigation intent was set
     assert app_test.session_state["nav_intent"] == "EditAgent"
     assert "agent_to_edit" in app_test.session_state
-    assert app_test.session_state["agent_to_edit"]["id"] == test_agent["id"]
+    assert str(app_test.session_state["agent_to_edit"].agent.id) == str(agent_version.agent.id)
 
 
 def test_show_agent_details_page_chat_navigation(test_agent, test_data_provider):
@@ -297,8 +345,11 @@ def test_show_agent_details_page_chat_navigation(test_agent, test_data_provider)
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -319,14 +370,14 @@ def test_show_agent_details_page_chat_navigation(test_agent, test_data_provider)
     
     # Simulate clicking the chat button by setting nav_intent
     app_test.session_state["nav_intent"] = "Chat"
-    app_test.session_state["selected_agent"] = test_agent
+    app_test.session_state["selected_agent"] = agent_version
     
     # Re-run to process navigation
     app_test.run()
     
     # Verify navigation intent was set
     assert app_test.session_state["nav_intent"] == "Chat"
-    assert app_test.session_state["selected_agent"]["id"] == test_agent["id"]
+    assert str(app_test.session_state["selected_agent"].agent.id) == str(agent_version.agent.id)
 
 
 def test_show_agent_details_page_back_to_list(test_agent, test_data_provider):
@@ -334,8 +385,11 @@ def test_show_agent_details_page_back_to_list(test_agent, test_data_provider):
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -371,8 +425,11 @@ def test_show_agent_details_page_tabs(test_agent, test_data_provider):
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -399,8 +456,11 @@ def test_show_agent_details_page_verbose(test_agent, test_data_provider):
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agent_details_page_test)
     
+    # Convert test agent dict to Pydantic model
+    agent_version = convert_test_agent_to_pydantic(test_agent.copy())
+    
     # Set up session state for the test with verbose enabled
-    app_test.session_state["agent_to_view"] = test_agent
+    app_test.session_state["agent_to_view"] = agent_version
     app_test.session_state["current_page"] = "AgentDetails"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -417,7 +477,7 @@ def test_show_agent_details_page_verbose(test_agent, test_data_provider):
     title_found = False
     if hasattr(app_test, "title"):
         for title in app_test.title:
-            if hasattr(title, "value") and test_agent["name"] in title.value:
+            if hasattr(title, "value") and agent_version.agent.name in title.value:
                 title_found = True
                 break
     

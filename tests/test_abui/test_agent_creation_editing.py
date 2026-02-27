@@ -1,9 +1,11 @@
 """Tests for the agent creation and editing workflows."""
 
+import copy
 import json
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from tests.test_abui.conftest import convert_test_agent_to_pydantic
 from tests.test_abui.streamlit_test_wrapper import (
     show_create_agent_page_test,
     show_edit_agent_page_test
@@ -17,7 +19,7 @@ def test_edit_agent_page_loads(test_agent: dict, test_data_provider: TestDataPro
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -81,7 +83,7 @@ def test_agent_editing_validation(test_agent: dict, test_data_provider: TestData
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -107,7 +109,7 @@ def test_agent_editing_cancel_button(test_agent: dict, test_data_provider: TestD
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -132,7 +134,7 @@ def test_agent_editing_form_elements(test_agent: dict, test_data_provider: TestD
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -212,7 +214,7 @@ def test_agent_editing_field_population(test_agent: dict, test_data_provider: Te
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider
@@ -241,7 +243,7 @@ def test_agent_editing_advanced_sections_exist(test_agent: dict, test_data_provi
     app_test = AppTest.from_function(show_edit_agent_page_test)
     
     # Set up the session state with an agent to edit
-    app_test.session_state["agent_to_edit"] = test_agent
+    app_test.session_state["agent_to_edit"] = convert_test_agent_to_pydantic(copy.deepcopy(test_agent))
     app_test.session_state["current_page"] = "EditAgent"
     app_test.session_state["config"] = {"ui": {"mock": True}}
     app_test.session_state["data_provider"] = test_data_provider

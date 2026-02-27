@@ -1,5 +1,6 @@
 """Tests for the chat view."""
 
+import copy
 import json
 import os
 from typing import Any, cast
@@ -15,6 +16,7 @@ from tests.test_abui.streamlit_test_wrapper import (
     display_agent_tools_test,
 )
 from tests.test_abui.test_data_provider import TestDataProvider
+from tests.test_abui.conftest import convert_test_agent_to_pydantic
 
 
 def test_chat_agent_selection(test_data_provider: TestDataProvider) -> None:
@@ -26,7 +28,20 @@ def test_chat_agent_selection(test_data_provider: TestDataProvider) -> None:
     os.environ["AB_UI_DATA_PROVIDER"] = "mock"
     
     # Add a chat agent to ensure there's at least one agent available
-    test_data_provider.add_test_agent({"id": "test-chat-agent", "name": "Test Chat Agent", "type": "chat"})
+    test_data_provider.add_test_agent({
+        "id": "aaaaaaaa-bbbb-cccc-dddd-111111111111",
+        "name": "Test Chat Agent",
+        "description": "A test chat agent",
+        "type": "chat",
+        "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "aaaaaaaa-bbbb-cccc-dddd-111111111112",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
+        "agent_config": {}
+    })
     
     # Prepare session state with minimal valid config and the test data provider
     app_test.session_state["config"] = {
@@ -62,11 +77,17 @@ def test_chat_interface_display(test_data_provider: TestDataProvider) -> None:
     
     # Create a chat agent for testing
     chat_agent = {
-        "id": "test-chat-agent",
+        "id": "aaaaaaaa-bbbb-cccc-dddd-111111111111",
         "name": "Test Chat Agent",
         "description": "A chat agent for testing",
         "type": "chat",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "aaaaaaaa-bbbb-cccc-dddd-111111111112",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         "agent_config": {
             "llmModelId": "test-model"
         }
@@ -82,7 +103,7 @@ def test_chat_interface_display(test_data_provider: TestDataProvider) -> None:
         "ui": {"mock": True, "data_provider": "mock"}
     }
     app_test.session_state["data_provider"] = test_data_provider
-    app_test.session_state["selected_agent"] = chat_agent
+    app_test.session_state["selected_agent"] = convert_test_agent_to_pydantic(copy.deepcopy(chat_agent))
     app_test.session_state["chat_history"] = {chat_agent["id"]: []}
     
     # Run the test function
@@ -110,11 +131,17 @@ def test_task_interface_display(test_data_provider: TestDataProvider) -> None:
     
     # Create a task agent with inputSchema for testing
     task_agent = {
-        "id": "task-agent-test",
+        "id": "bbbbbbbb-cccc-dddd-eeee-222222222222",
         "name": "Task Agent",
         "description": "A task agent for testing",
         "type": "task",
         "status": "CREATED",
+        "isGlobalAgent": False,
+        "currentVersionId": "bbbbbbbb-cccc-dddd-eeee-222222222223",
+        "created_at": "2026-01-01T00:00:00Z",
+        "created_by": "test",
+        "modified_at": "2026-01-01T00:00:00Z",
+        "modified_by": "test",
         "agent_config": {
             "llmModelId": "test-model",
             "inputSchema": {
@@ -144,7 +171,7 @@ def test_task_interface_display(test_data_provider: TestDataProvider) -> None:
         "ui": {"mock": True, "data_provider": "mock"}
     }
     app_test.session_state["data_provider"] = test_data_provider
-    app_test.session_state["selected_agent"] = task_agent
+    app_test.session_state["selected_agent"] = convert_test_agent_to_pydantic(copy.deepcopy(task_agent))
     app_test.session_state["chat_history"] = {task_agent["id"]: []}
     
     # Run the test function
@@ -168,13 +195,33 @@ def test_task_interface_display(test_data_provider: TestDataProvider) -> None:
 
 def test_agent_tools_display() -> None:
     """Test the display of agent tools in the chat interface."""
-    # Create an agent with tools for testing
-    agent_with_tools = {
-        "id": "agent-with-tools",
-        "name": "Tool Agent",
-        "description": "An agent with tools for testing",
-        "type": "rag",
-        "agent_config": {
+    # Import required models
+    from ab_cli.models.agent import Agent, AgentVersion, VersionConfig
+    from uuid import UUID
+    
+    # Create an AgentVersion with tools in config
+    agent = Agent(
+        id=UUID("cccccccc-dddd-eeee-ffff-333333333333"),
+        name="Tool Agent",
+        description="An agent with tools for testing",
+        type="rag",
+        status="CREATED",
+        is_global_agent=False,
+        current_version_id=UUID("cccccccc-dddd-eeee-ffff-444444444444"),
+        created_at="2026-01-01T00:00:00Z",
+        created_by="test",
+        modified_at="2026-01-01T00:00:00Z",
+        modified_by="test",
+    )
+    
+    version = VersionConfig(
+        id=UUID("cccccccc-dddd-eeee-ffff-444444444444"),
+        number=1,
+        version_label="v1.0.0",
+        notes="Test version",
+        created_at="2026-01-01T00:00:00Z",
+        created_by="test",
+        config={
             "llmModelId": "test-model",
             "tools": [
                 {
@@ -189,7 +236,9 @@ def test_agent_tools_display() -> None:
                 }
             ]
         }
-    }
+    )
+    
+    agent_with_tools = AgentVersion(agent=agent, version=version)
     
     # Create a test AppTest instance
     app_test = AppTest.from_function(display_agent_tools_test)
