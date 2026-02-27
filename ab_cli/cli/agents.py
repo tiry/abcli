@@ -18,7 +18,7 @@ from ab_cli.cli.pagination_utils import (
     show_pagination_info,
 )
 from ab_cli.config.loader import find_config_file, load_config
-from ab_cli.models.agent import AgentCreate, AgentPatch, AgentUpdate
+from ab_cli.services.agent_service import AgentService
 
 console = Console()
 
@@ -289,7 +289,12 @@ def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
 
     try:
         with get_client(config_path) as client:
-            result = client.get_agent(agent_id)
+            agent_service = AgentService(client)
+            result = agent_service.get_agent(agent_id)
+
+            if result is None:
+                console.print(f"[red]Agent not found:[/red] {agent_id}")
+                raise SystemExit(1)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))
@@ -372,50 +377,31 @@ def create_agent(
         console.print(f"[red]Invalid JSON in config file:[/red] {e}")
         raise SystemExit(1)
 
-    agent_create = AgentCreate(
-        name=name,
-        description=description,
-        agent_type=agent_type,
-        config=config,
-        version_label=version_label,
-        notes=notes,
-    )
-
     try:
         with get_client(config_path) as client:
-            result = client.create_agent(agent_create)
+            agent_service = AgentService(client)
+            result = agent_service.create_agent(
+                {
+                    "name": name,
+                    "description": description,
+                    "agent_type": agent_type,
+                    "config": config,
+                    "version_label": version_label,
+                    "notes": notes,
+                }
+            )
 
-            # Handle the case where result is a raw dict (not an AgentVersion)
-            if isinstance(result, dict):
-                if output_format == "json":
-                    output_json(result)
-                elif output_format == "yaml":
-                    output_yaml(result)
-                else:
-                    console.print("[green]✓[/green] Agent created successfully!")
-                    # Extract information directly from the response if available
-                    agent_id = result.get("id", "00000000-0000-0000-0000-000000000000")
-                    agent_name = result.get("name", "Unknown")
-                    agent_type = result.get("type", "unknown")
-                    # Try to get version information
-                    version = "1"  # Default
-
-                    console.print(f"  ID: [cyan]{agent_id}[/cyan]")
-                    console.print(f"  Name: {agent_name}")
-                    console.print(f"  Type: {agent_type}")
-                    console.print(f"  Version: {version}")
+            # AgentService always returns AgentVersion
+            if output_format == "json":
+                output_json(result.model_dump(by_alias=True))
+            elif output_format == "yaml":
+                output_yaml(result.model_dump(by_alias=True))
             else:
-                # Regular handling for AgentVersion object
-                if output_format == "json":
-                    output_json(result.model_dump(by_alias=True))
-                elif output_format == "yaml":
-                    output_yaml(result.model_dump(by_alias=True))
-                else:
-                    console.print("[green]✓[/green] Agent created successfully!")
-                    console.print(f"  ID: [cyan]{result.agent.id}[/cyan]")
-                    console.print(f"  Name: {result.agent.name}")
-                    console.print(f"  Type: {result.agent.type}")
-                    console.print(f"  Version: {result.version.number}")
+                console.print("[green]✓[/green] Agent created successfully!")
+                console.print(f"  ID: [cyan]{result.agent.id}[/cyan]")
+                console.print(f"  Name: {result.agent.name}")
+                console.print(f"  Type: {result.agent.type}")
+                console.print(f"  Version: {result.version.number}")
 
     except APIError as e:
         console.print(f"[red]Error creating agent:[/red] {e}")
@@ -462,15 +448,17 @@ def update_agent(
             console.print(f"[red]Invalid JSON in config file:[/red] {e}")
             raise SystemExit(1)
 
-    agent_update = AgentUpdate(
-        config=config,
-        version_label=version_label,
-        notes=notes,
-    )
-
     try:
         with get_client(config_path) as client:
-            result = client.update_agent(agent_id, agent_update)
+            agent_service = AgentService(client)
+            result = agent_service.update_agent(
+                agent_id,
+                {
+                    "config": config,
+                    "version_label": version_label,
+                    "notes": notes,
+                },
+            )
 
             # Handle the case where result is a raw dict or an AgentVersion
             if isinstance(result, dict) and not hasattr(result, "agent"):
@@ -541,11 +529,10 @@ def patch_agent(
         console.print("[yellow]Warning:[/yellow] No changes specified")
         return
 
-    patch = AgentPatch(name=name, description=description)
-
     try:
         with get_client(config_path) as client:
-            result = client.patch_agent(agent_id, patch)
+            agent_service = AgentService(client)
+            result = agent_service.patch_agent(agent_id, name=name, description=description)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))
@@ -578,7 +565,8 @@ def delete_agent(ctx: click.Context, agent_id: str, yes: bool) -> None:
 
     try:
         with get_client(config_path) as client:
-            client.delete_agent(agent_id)
+            agent_service = AgentService(client)
+            agent_service.delete_agent(agent_id)
             console.print(f"[green]✓[/green] Agent deleted: {agent_id}")
 
     except NotFoundError:
@@ -605,7 +593,8 @@ def list_agent_types(ctx: click.Context, output_format: str) -> None:
 
     try:
         with get_client(config_path) as client:
-            result = client.list_agent_types()
+            agent_service = AgentService(client)
+            result = agent_service.list_agent_types()
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))

@@ -53,16 +53,8 @@ def mock_client():
                        config={"systemPrompt": "You are an AI assistant."})
     )
 
-    mock.create_agent.return_value = AgentVersion(
-        agent=Agent(id="00000000-0000-4000-a000-000000000001", name="New Agent", type="tool",
-                   description="New agent", status="CREATED",
-                   created_at="2026-02-10T12:00:00Z", created_by="test-user",
-                   modified_at="2026-02-10T12:00:00Z"),
-        version=VersionConfig(id="00000000-0000-4000-a000-000000000101", number=1, version_label="v1.0",
-                       notes="Initial version",
-                       created_at="2026-02-10T12:00:00Z", created_by="test-user",
-                       config={"systemPrompt": "You are an AI assistant."})
-    )
+    # create_agent returns a dict with id, then AgentService calls get_agent
+    mock.create_agent.return_value = {"id": "00000000-0000-4000-a000-000000000001", "name": "New Agent"}
 
     mock.update_agent.return_value = AgentVersion(
         agent=Agent(id="00000000-0000-4000-a000-000000000001", name="Test Agent", type="tool",
@@ -237,7 +229,7 @@ class TestGetAgent:
             result = runner.invoke(agents, ["get", "00000000-0000-4000-a000-000000000001"], obj=ctx_obj)
 
         assert result.exit_code == 0
-        mock_client.get_agent.assert_called_once_with("00000000-0000-4000-a000-000000000001")
+        mock_client.get_agent.assert_called_once_with("00000000-0000-4000-a000-000000000001", None)
 
         assert "Test Agent" in result.output
         assert "00000000-0000-4000-a000-000000000001" in result.output
@@ -302,12 +294,16 @@ class TestCreateAgent:
 
         assert result.exit_code == 0
 
-        # Verify client was called with correct parameters
+        # Verify client was called (via service which calls client.create_agent, then client.get_agent)
         mock_client.create_agent.assert_called_once()
+        # AgentService receives dict and creates AgentCreate internally
         args, _ = mock_client.create_agent.call_args
         agent_create = args[0]
         assert isinstance(agent_create, AgentCreate)
         assert agent_create.name == "New Agent"
+        
+        # AgentService also calls get_agent after creation to fetch full result
+        mock_client.get_agent.assert_called()
         assert agent_create.description == "New agent"
         assert agent_create.agent_type == "tool"
         assert agent_create.config == config

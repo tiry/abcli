@@ -10,7 +10,7 @@ from rich.table import Table
 from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.exceptions import APIError, NotFoundError
 from ab_cli.cli.client_utils import get_client_with_error_handling
-from ab_cli.models.agent import VersionCreate
+from ab_cli.services.version_service import VersionService
 
 console = Console()
 
@@ -57,7 +57,8 @@ def list_versions(
 
     try:
         with get_client(config_path) as client:
-            result = client.list_versions(agent_id, limit=limit, offset=offset)
+            version_service = VersionService(client)
+            result = version_service.list_versions(agent_id, limit=limit, offset=offset)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))
@@ -125,7 +126,14 @@ def get_version(
 
     try:
         with get_client(config_path) as client:
-            result = client.get_version(agent_id, version_id)
+            version_service = VersionService(client)
+            result = version_service.get_version(agent_id, version_id)
+
+            if result is None:
+                console.print(
+                    f"[red]Resource not found:[/red] Agent {agent_id} or Version {version_id}"
+                )
+                raise SystemExit(1)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))
@@ -199,15 +207,12 @@ def create_version(
         console.print(f"[red]Invalid JSON in config file:[/red] {e}")
         raise SystemExit(1)
 
-    version_create = VersionCreate(
-        config=config,
-        version_label=version_label,
-        notes=notes,
-    )
-
     try:
         with get_client(config_path) as client:
-            result = client.create_version(agent_id, version_create)
+            version_service = VersionService(client)
+            result = version_service.create_version(
+                agent_id, config, version_label=version_label, notes=notes
+            )
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))

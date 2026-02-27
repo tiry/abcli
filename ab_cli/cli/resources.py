@@ -10,6 +10,7 @@ from rich.table import Table
 from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.exceptions import APIError
 from ab_cli.cli.client_utils import get_client_with_error_handling
+from ab_cli.services.resource_service import ResourceService
 
 console = Console()
 
@@ -59,7 +60,8 @@ def list_models(
 
     try:
         with get_client(config_path) as client:
-            result = client.list_models(agent_type=agent_type, limit=limit, offset=offset)
+            resource_service = ResourceService(client)
+            result = resource_service.list_models(agent_type=agent_type, limit=limit, offset=offset)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))
@@ -130,7 +132,8 @@ def list_guardrails(ctx: click.Context, limit: int, offset: int, output_format: 
 
     try:
         with get_client(config_path) as client:
-            result = client.list_guardrails(limit=limit, offset=offset)
+            resource_service = ResourceService(client)
+            result = resource_service.list_guardrails(limit=limit, offset=offset)
 
             if output_format == "json":
                 output_json(result.model_dump(by_alias=True))

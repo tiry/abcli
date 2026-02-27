@@ -21,6 +21,7 @@ from ab_cli.models.invocation import (
     InvokeResponse,
     InvokeTaskRequest,
 )
+from ab_cli.services.agent_service import AgentService
 
 console = Console()
 error_console = Console(stderr=True)
@@ -360,8 +361,12 @@ def interactive(
 
     try:
         with get_client(config_path) as client:
-            # Verify agent exists before starting session
-            agent = client.get_agent(agent_id, version_id)
+            # Verify agent exists before starting session (use AgentService)
+            agent_service = AgentService(client)
+            agent = agent_service.get_agent(agent_id, version_id)
+
+            if agent is None:
+                raise NotFoundError(f"Agent {agent_id} not found", agent_id)
 
             # Session initialization logging (verbose mode)
             if verbose:
