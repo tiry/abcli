@@ -12,7 +12,16 @@ from typing import Any, cast
 
 from ab_cli.abui.providers.data_provider import DataProvider
 from ab_cli.api.pagination import PaginatedResult
-from ab_cli.models.agent import Agent, AgentVersion, Pagination, Version, VersionConfig, VersionList
+from ab_cli.models.agent import (
+    Agent,
+    AgentCreate,
+    AgentUpdate,
+    AgentVersion,
+    Pagination,
+    Version,
+    VersionConfig,
+    VersionList,
+)
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import (
     GuardrailList,
@@ -189,20 +198,17 @@ class MockDataProvider(DataProvider):
                     )
         return None
 
-    def create_agent(self, agent_data: dict) -> AgentVersion:
+    def create_agent(self, agent_create: AgentCreate) -> AgentVersion:
         """Create a new agent.
 
         Args:
-            agent_data: Dictionary containing agent creation data.
+            agent_create: AgentCreate model containing agent creation data.
 
         Returns:
             AgentVersion object for the newly created agent.
         """
-        # Validate required fields
-        required_fields = ["name", "type"]
-        for field in required_fields:
-            if field not in agent_data:
-                raise ValueError(f"Missing required field: {field}")
+        # Convert model to dict using by_alias for camelCase fields
+        agent_data = agent_create.model_dump(by_alias=True)
 
         # Generate proper UUIDs
         new_id = str(uuid.uuid4())
@@ -244,16 +250,19 @@ class MockDataProvider(DataProvider):
 
         return AgentVersion(agent=new_agent, version=version)
 
-    def update_agent(self, agent_id: str, agent_data: dict) -> AgentVersion:
+    def update_agent(self, agent_id: str, agent_update: AgentUpdate) -> AgentVersion:
         """Update an existing agent (creates a new version).
 
         Args:
             agent_id: The ID of the agent to update.
-            agent_data: Dictionary containing update data.
+            agent_update: AgentUpdate model containing update data.
 
         Returns:
             AgentVersion object with the new version.
         """
+        # Convert model to dict
+        agent_data = agent_update.model_dump(by_alias=True)
+
         # Get the agent
         agents = self.get_agents()
         agent = None

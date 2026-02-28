@@ -28,8 +28,7 @@ auth_endpoint: "https://auth.iam.experience.hyland.com/idp/connect/token"
 grant_type: "client_credentials"
 
 # OAuth2 scopes (optional)
-auth_scope:
-  - "hxp"
+auth_scope: ["hxp environment_authorization"]
 
 # HTTP Settings (optional)
 timeout: 30.0       # Request timeout in seconds
@@ -53,10 +52,11 @@ pagination:
 
 # UI Configuration (optional)
 ui:
-  # Data Provider mode: "cli" or "mock"
-  # - cli: Use CLI commands to interact with the API (default)
+  # Data Provider mode: "direct", "cli", or "mock"
+  # - direct: Use API client directly for best performance (recommended, default)
+  # - cli: Use CLI commands via subprocess (legacy, slower)
   # - mock: Use mock data for development and testing
-  data_provider: "cli"
+  data_provider: "direct"
   
   # Directory containing mock data files (optional)
   # Only used when data_provider is "mock"

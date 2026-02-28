@@ -7,7 +7,7 @@ from typing import Any, Optional
 from datetime import datetime, UTC, timezone
 
 from ab_cli.abui.providers.mock_data_provider import MockDataProvider
-from ab_cli.models.agent import Agent, AgentVersion, VersionConfig
+from ab_cli.models.agent import Agent, AgentCreate, AgentUpdate, AgentVersion, VersionConfig
 
 
 # Use pytest's collection configuration to prevent collection
@@ -214,11 +214,11 @@ class MockTestingProvider(MockDataProvider):
         
         return super().get_agent(agent_id)
     
-    def create_agent(self, agent_data: dict[str, Any]) -> AgentVersion:
+    def create_agent(self, agent_data: dict[str, Any] | AgentCreate) -> AgentVersion:
         """Create a new agent with test tracking.
         
         Args:
-            agent_data: Dictionary containing agent data
+            agent_data: Dictionary or AgentCreate model containing agent data
             
         Returns:
             Created AgentVersion Pydantic model
@@ -231,6 +231,10 @@ class MockTestingProvider(MockDataProvider):
         if self.simulate_error["create_agent"]:
             raise RuntimeError("Simulated error in create_agent")
         
+        # Convert dict to AgentCreate if needed
+        if isinstance(agent_data, dict):
+            agent_data = AgentCreate.model_validate(agent_data)
+        
         agent_version = super().create_agent(agent_data)
         
         # Store in test agents for tracking
@@ -240,12 +244,12 @@ class MockTestingProvider(MockDataProvider):
         
         return agent_version
     
-    def update_agent(self, agent_id: str, agent_data: dict[str, Any]) -> AgentVersion:
+    def update_agent(self, agent_id: str, agent_data: dict[str, Any] | AgentUpdate) -> AgentVersion:
         """Update an existing agent with test tracking.
         
         Args:
             agent_id: The ID of the agent to update
-            agent_data: Dictionary containing agent data
+            agent_data: Dictionary or AgentUpdate model containing agent data
             
         Returns:
             Updated AgentVersion Pydantic model
@@ -257,6 +261,12 @@ class MockTestingProvider(MockDataProvider):
         
         if self.simulate_error["update_agent"]:
             raise RuntimeError(f"Simulated error in update_agent for ID {agent_id}")
+        
+        # Convert to dict if it's a Pydantic model
+        if isinstance(agent_data, AgentUpdate):
+            agent_data_dict = agent_data.model_dump(by_alias=True)
+        else:
+            agent_data_dict = agent_data
         
         # First check test agents
         if agent_id in self.test_agents:
@@ -273,17 +283,21 @@ class MockTestingProvider(MockDataProvider):
             new_version = VersionConfig(
                 id=str(uuid.uuid4()),
                 number=next_number,
-                version_label=agent_data.get("version_label", f"v1.0.{next_number}"),
-                notes=agent_data.get("notes", f"Version {next_number}"),
+                version_label=agent_data_dict.get("version_label", f"v1.0.{next_number}"),
+                notes=agent_data_dict.get("notes", f"Version {next_number}"),
                 created_at=created_at,
                 created_by="system",
-                config=agent_data.get("config", {}),
+                config=agent_data_dict.get("config", {}),
             )
             
             agent_version = AgentVersion(agent=agent, version=new_version)
             self.test_agent_versions[agent_id] = agent_version
             
             return agent_version
+        
+        # Convert dict to AgentUpdate if needed for parent call
+        if isinstance(agent_data, dict):
+            agent_data = AgentUpdate.model_validate(agent_data)
         
         # Try parent's update_agent which will check cached agents
         return super().update_agent(agent_id, agent_data)

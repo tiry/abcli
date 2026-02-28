@@ -897,22 +897,79 @@ The Agent Builder CLI includes a web-based user interface built with Streamlit t
 ### Launching the UI
 
 ```bash
-# Launch the web UI
+# Launch the web UI (default: CLI subprocess provider)
 ab ui
 
-# Launch on a specific port
-ab ui --port 8080
+# Launch with direct API provider (recommended for production)
+ab ui --direct
+
+# Launch on a specific port with direct provider
+ab ui --port 8080 --direct
+
+# Launch with mock data for testing/demo
+ab ui --mock
 
 # Launch with a specific config file
-ab ui --config custom-config.yaml
+ab ui --config custom-config.yaml --direct
+
+# Launch without auto-opening browser
+ab ui --no-browser --direct
+
+# Enable verbose output
+ab ui --verbose --direct
 ```
 
 **Command Parameters:**
 
 | Parameter | Short | Description |
 |-----------|-------|-------------|
-| `--port` | `-p` | Port to run the UI server on (default: 8501) |
-| `--config` | `-c` | Path to configuration file |
+| `--port` | | Port to run the UI server on (default: 8501) |
+| `--config-path` | | Path to configuration file |
+| `--no-browser` | | Don't open browser automatically |
+| `--verbose` | | Enable verbose output for CLI commands |
+| `--mock` | | Use mock data provider (for testing/demo) |
+| `--direct` | | Use direct API data provider (recommended) |
+| `--cli` | | Use CLI subprocess data provider (legacy, default) |
+
+### Data Provider Backends
+
+The UI supports three different data provider backends:
+
+**1. Direct API Provider (`--direct`)** - **Recommended**
+- Makes direct API calls to the Agent Builder platform
+- Fastest performance with no subprocess overhead
+- Best for production use
+- Type-safe with full error handling
+
+```bash
+ab ui --direct
+```
+
+**2. CLI Subprocess Provider (`--cli`)** - **Legacy**
+- Spawns CLI subprocesses for each operation
+- Default behavior if no flag is specified
+- Compatible with older workflows
+- Higher latency due to process creation
+
+```bash
+ab ui --cli
+# OR simply:
+ab ui
+```
+
+**3. Mock Data Provider (`--mock`)** - **Testing/Demo**
+- Uses predefined test data from JSON files
+- No actual API calls made
+- Perfect for testing, demos, and development
+- Simulates agent responses
+
+```bash
+ab ui --mock
+```
+
+**Note:** Only one provider flag can be specified at a time. Specifying multiple provider flags will result in an error.
+
+### UI Features
 
 The UI will open in your default web browser and provides:
 
@@ -923,6 +980,22 @@ The UI will open in your default web browser and provides:
 - **Configuration**: Manage configuration through the UI
 
 For detailed information about the UI, including features, navigation, and testing, see [UI.md](UI.md).
+
+### Examples
+
+```bash
+# Production use with direct provider
+ab ui --direct --config production-config.yaml
+
+# Development with mock data on custom port
+ab ui --mock --port 9000
+
+# Testing with verbose output
+ab ui --direct --verbose --no-browser
+
+# Demo mode
+ab ui --mock --port 8080
+```
 
 ## Utility Commands
 

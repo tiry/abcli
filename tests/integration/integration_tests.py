@@ -34,7 +34,7 @@ sys.path.append(parent_dir)
 
 
 # Constants
-DEFAULT_CONFIG = "./config.yaml"
+DEFAULT_CONFIG = "./dev.config.yaml"
 SUCCESS_COLOR = "\033[92m"  # Green
 FAILURE_COLOR = "\033[91m"  # Red
 INFO_COLOR = "\033[94m"     # Blue

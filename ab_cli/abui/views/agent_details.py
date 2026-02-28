@@ -237,7 +237,11 @@ def show_agent_details_page() -> None:
     if st.session_state.get("show_agent_json", False):
         st.markdown("---")
         st.markdown("### Full Agent JSON")
-        st.json(agent_to_view)
+        # Convert Pydantic model to dict for proper JSON serialization
+        if hasattr(agent_to_view, "model_dump"):
+            st.json(agent_to_view.model_dump())
+        else:
+            st.json(agent_to_view)
         st.markdown("---")
 
     # Create tabs for different sections

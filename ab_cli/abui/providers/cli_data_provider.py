@@ -16,7 +16,16 @@ from typing import Any
 from ab_cli.abui.providers.data_provider import DataProvider
 from ab_cli.abui.utils.json_utils import extract_json_from_text
 from ab_cli.api.pagination import PaginatedResult
-from ab_cli.models.agent import Agent, AgentVersion, Pagination, Version, VersionList
+from ab_cli.models.agent import (
+    Agent,
+    AgentCreate,
+    AgentUpdate,
+    AgentVersion,
+    Pagination,
+    Version,
+    VersionConfig,
+    VersionList,
+)
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import (
     GuardrailList,
@@ -219,8 +228,18 @@ class CLIDataProvider(DataProvider):
 
             if "agent" in result and "version" in result:
                 agent = Agent.model_validate(result["agent"])
-                version = Version.model_validate(result["version"])
-                return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
+                version_data = result["version"]
+                # Convert Version to VersionConfig (which includes the config field)
+                version_config = VersionConfig(
+                    id=version_data["id"],
+                    number=version_data["number"],
+                    version_label=version_data.get("versionLabel", ""),
+                    notes=version_data.get("notes", ""),
+                    created_at=version_data["createdAt"],
+                    created_by=version_data["createdBy"],
+                    config=version_data.get("config", {}),
+                )
+                return AgentVersion(agent=agent, version=version_config)
             else:
                 return None
 
@@ -229,18 +248,21 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in get_agent: {e}")
             return None
 
-    def create_agent(self, agent_data: dict) -> AgentVersion:
+    def create_agent(self, agent_create: AgentCreate) -> AgentVersion:
         """Create a new agent.
 
         Args:
-            agent_data: Dictionary containing agent creation data.
+            agent_create: AgentCreate model containing agent creation data.
 
         Returns:
             AgentVersion object for the newly created agent.
         """
         try:
+            # Convert model to dict
+            agent_data = agent_create.model_dump(by_alias=True)
+
             name = agent_data.get("name")
-            agent_type = agent_data.get("type", "chat")
+            agent_type = agent_data.get("agentType", "chat")
             description = agent_data.get("description", "")
             agent_config = agent_data.get("config", {})
 
@@ -277,8 +299,18 @@ class CLIDataProvider(DataProvider):
                 # Convert to AgentVersion
                 if "agent" in result and "version" in result:
                     agent = Agent.model_validate(result["agent"])
-                    version = Version.model_validate(result["version"])
-                    return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
+                    version_data = result["version"]
+                    # Convert Version to VersionConfig
+                    version_config = VersionConfig(
+                        id=version_data["id"],
+                        number=version_data["number"],
+                        version_label=version_data.get("versionLabel", ""),
+                        notes=version_data.get("notes", ""),
+                        created_at=version_data["createdAt"],
+                        created_by=version_data["createdBy"],
+                        config=version_data.get("config", {}),
+                    )
+                    return AgentVersion(agent=agent, version=version_config)
                 else:
                     raise ValueError("Invalid response from create command")
             finally:
@@ -290,17 +322,19 @@ class CLIDataProvider(DataProvider):
                 print(f"Error in create_agent: {e}")
             raise
 
-    def update_agent(self, agent_id: str, agent_data: dict) -> AgentVersion:
+    def update_agent(self, agent_id: str, agent_update: AgentUpdate) -> AgentVersion:
         """Update an existing agent (creates a new version).
 
         Args:
             agent_id: The ID of the agent to update.
-            agent_data: Dictionary containing update data.
+            agent_update: AgentUpdate model containing update data.
 
         Returns:
             AgentVersion object with the new version.
         """
         try:
+            # Convert model to dict
+            agent_data = agent_update.model_dump(by_alias=True)
             agent_config = agent_data.get("config", {})
 
             # Create temporary file for config
@@ -331,8 +365,18 @@ class CLIDataProvider(DataProvider):
                 # Convert to AgentVersion
                 if "agent" in result and "version" in result:
                     agent = Agent.model_validate(result["agent"])
-                    version = Version.model_validate(result["version"])
-                    return AgentVersion(agent=agent, version=version)  # type: ignore[arg-type]
+                    version_data = result["version"]
+                    # Convert Version to VersionConfig
+                    version_config = VersionConfig(
+                        id=version_data["id"],
+                        number=version_data["number"],
+                        version_label=version_data.get("versionLabel", ""),
+                        notes=version_data.get("notes", ""),
+                        created_at=version_data["createdAt"],
+                        created_by=version_data["createdBy"],
+                        config=version_data.get("config", {}),
+                    )
+                    return AgentVersion(agent=agent, version=version_config)
                 else:
                     raise ValueError("Invalid response from update command")
             finally:
@@ -456,6 +500,7 @@ class CLIDataProvider(DataProvider):
 
             versions_data = result.get("versions", [])
             pagination_info = result.get("pagination", {})
+            agent_data = result.get("agent")
 
             # Convert to Version models
             versions = [Version.model_validate(v) for v in versions_data]
@@ -467,15 +512,29 @@ class CLIDataProvider(DataProvider):
                 total_items=pagination_info.get("total_items", len(versions)),
             )
 
-            return VersionList(versions=versions, pagination=pagination, agent=None)  # type: ignore[arg-type]
+            # Parse agent if available
+            agent = Agent.model_validate(agent_data) if agent_data else None
+            if not agent:
+                # If no agent in response, try to get it separately
+                agent_version = self.get_agent(agent_id)
+                agent = agent_version.agent if agent_version else None
+
+            return VersionList(versions=versions, pagination=pagination, agent=agent)  # type: ignore[arg-type]
 
         except Exception as e:
             if self.verbose:
                 print(f"Error fetching versions: {e}")
+            # Try to get agent for error case
+            try:
+                agent_version = self.get_agent(agent_id)
+                agent = agent_version.agent if agent_version else None
+            except Exception:
+                agent = None
+
             return VersionList(
                 versions=[],
                 pagination=Pagination(limit=limit, offset=offset, total_items=0),
-                agent=None,  # type: ignore[arg-type]
+                agent=agent,  # type: ignore[arg-type]
             )
 
     def get_version(self, agent_id: str, version_id: str) -> Version | None:

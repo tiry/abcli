@@ -11,15 +11,23 @@ from ab_cli.config import load_config
 parser = argparse.ArgumentParser(description="Agent Builder UI")
 parser.add_argument("--config", type=str, help="Path to configuration file")
 parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-parser.add_argument("--mock", action="store_true", help="Use mock data provider")
+parser.add_argument(
+    "--mock", action="store_true", help="Use mock data provider (deprecated, use --provider)"
+)
+parser.add_argument(
+    "--provider", type=str, choices=["mock", "direct", "cli"], help="Data provider backend"
+)
 args = parser.parse_args()
 
-# If mock flag is provided, set environment variable to force mock provider
-if args.mock:
-    import os
-
+# Set provider from either --provider or --mock flag (for backward compatibility)
+if args.provider:
+    os.environ["AB_UI_DATA_PROVIDER"] = args.provider
+    if args.verbose:
+        print(f"Data provider set to: {args.provider}")
+elif args.mock:
     os.environ["AB_UI_DATA_PROVIDER"] = "mock"
-    print("Mock mode enabled via command line flag")
+    if args.verbose:
+        print("Mock mode enabled via command line flag")
 
 # Configure the page
 st.set_page_config(
@@ -204,6 +212,23 @@ if st.session_state.api_client:
         # Try to ping the API
         health = st.session_state.api_client.health_check()
         st.sidebar.success("✅ Connected to AB API")
+        
+        # Display data provider mode
+        ui_config = (
+            st.session_state.config.ui
+            if hasattr(st.session_state.config, "ui") and st.session_state.config.ui
+            else None
+        )
+        data_provider = os.environ["AB_UI_DATA_PROVIDER"]
+        
+        # Show provider mode with appropriate icon/color
+        provider_display = {
+            "mock": "🎭 Mock Data",
+            "cli": "⚙️ CLI Provider", 
+            "direct": "🚀 Direct API"
+        }
+        st.sidebar.info(f"{provider_display.get(data_provider, f'📦 {data_provider}')}")
+        
     except Exception as e:
         st.sidebar.error(f"❌ API Error: {str(e)}")
 else:

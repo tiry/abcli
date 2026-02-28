@@ -75,19 +75,14 @@ def test_test_data_provider_create_agent() -> None:
     """Test that the TestDataProvider can create agents."""
     provider = TestDataProvider()
     
-    # Create a test agent
+    # Create a test agent - use AgentCreate compatible fields
     new_agent = {
         "name": "Test Agent",
         "description": "A test agent",
-        "type": "chat",
-        "status": "CREATED",
-        "isGlobalAgent": False,
-        "currentVersionId": "12345678-1234-1234-1234-123456789012",
-        "created_at": "2026-01-01T00:00:00Z",
-        "created_by": "test",
-        "modified_at": "2026-01-01T00:00:00Z",
-        "modified_by": "test",
-        "agent_config": {}
+        "agentType": "chat",  # AgentCreate uses agentType
+        "config": {},  # AgentCreate uses config not agent_config
+        "version_label": "v1.0",
+        "notes": "Initial version"
     }
     
     # Create the agent - returns AgentVersion

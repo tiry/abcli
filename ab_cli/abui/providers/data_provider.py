@@ -7,7 +7,7 @@ Providers can use different backends (mock data, CLI subprocess, direct API call
 from abc import ABC, abstractmethod
 
 from ab_cli.api.pagination import PaginatedResult
-from ab_cli.models.agent import Agent, AgentVersion, Version, VersionList
+from ab_cli.models.agent import Agent, AgentCreate, AgentUpdate, AgentVersion, Version, VersionList
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import GuardrailList, LLMModelList
 
@@ -57,36 +57,35 @@ class DataProvider(ABC):
         pass
 
     @abstractmethod
-    def create_agent(self, agent_data: dict) -> AgentVersion:
+    def create_agent(self, agent_create: AgentCreate) -> AgentVersion:
         """Create a new agent.
 
         Args:
-            agent_data: Dictionary containing agent creation data
-                (name, description, type, config, etc.).
+            agent_create: AgentCreate model with name, description, type, config, etc.
 
         Returns:
             AgentVersion object for the newly created agent.
 
         Raises:
-            ValidationError: If agent_data is invalid.
+            ValidationError: If agent_create is invalid.
             APIError: If creation fails.
         """
         pass
 
     @abstractmethod
-    def update_agent(self, agent_id: str, agent_data: dict) -> AgentVersion:
+    def update_agent(self, agent_id: str, agent_update: AgentUpdate) -> AgentVersion:
         """Update an existing agent (creates a new version).
 
         Args:
             agent_id: The ID of the agent to update.
-            agent_data: Dictionary containing update data (config, version_label, notes).
+            agent_update: AgentUpdate model with config, version_label, and notes.
 
         Returns:
             AgentVersion object with the new version.
 
         Raises:
             NotFoundError: If agent not found.
-            ValidationError: If agent_data is invalid.
+            ValidationError: If agent_update is invalid.
         """
         pass
 

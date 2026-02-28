@@ -9,6 +9,9 @@ import streamlit as st
 # Import functions from agents.py
 from ab_cli.abui.views.agents import clear_cache, get_guardrails, get_models
 
+# Import Pydantic models
+from ab_cli.models.agent import AgentCreate, AgentUpdate
+
 
 def increment_version(version: str) -> str:
     """Increment the last numeric component of a version string.
@@ -166,13 +169,13 @@ def show_edit_agent_page() -> None:
 
                 hybrid_search = st.checkbox(
                     "Hybrid Search",
-                    value=agent_config.get("hybrid_search", False),
+                    value=agent_config.get("hybridSearch", False),
                     help="Enable hybrid search combining multiple search strategies",
                 )
 
                 enable_deep_search = st.checkbox(
                     "Enable Deep Search",
-                    value=agent_config.get("enable_deep_search", False),
+                    value=agent_config.get("enableDeepSearch", False),
                     help="Enable deep search for more thorough results",
                 )
 
@@ -319,11 +322,11 @@ def show_edit_agent_page() -> None:
 
                     # Add RAG parameters directly to agent_config if agent type is rag
                     if agent_type == "rag":
-                        # Add all RAG parameters directly to the config
+                        # Add all RAG parameters directly to the config (using camelCase for API)
                         if hxql_query:  # Only add if not empty
                             agent_config["hxqlQuery"] = hxql_query
-                        agent_config["hybrid_search"] = hybrid_search
-                        agent_config["enable_deep_search"] = enable_deep_search
+                        agent_config["hybridSearch"] = hybrid_search
+                        agent_config["enableDeepSearch"] = enable_deep_search
                         agent_config["limit"] = limit
                         agent_config["adjacentEmbeddingRange"] = adjacent_range
                         agent_config["adjacentEmbeddingMerge"] = adjacent_merge
@@ -334,24 +337,6 @@ def show_edit_agent_page() -> None:
                     if agent_type == "task" and schema_json.strip():
                         agent_config["inputSchema"] = input_schema
 
-                    # Create the agent data dictionary
-                    agent_data = {
-                        "name": name,
-                        "description": description,
-                        "type": agent_type,
-                        "agent_config": agent_config,
-                    }
-
-                    # Add version information
-                    if agent_to_edit:
-                        # Use user-provided version info
-                        agent_data["version_label"] = version_label
-                        agent_data["notes"] = version_notes
-                    else:
-                        # Default for new agents
-                        agent_data["version_label"] = "v1.0"
-                        agent_data["notes"] = "Initial version"
-
                     # Determine action type before attempting operation
                     action_type = "update" if agent_to_edit else "create"
 
@@ -359,12 +344,25 @@ def show_edit_agent_page() -> None:
                     with st.spinner(f"{'Updating' if agent_to_edit else 'Creating'} agent..."):
                         try:
                             if agent_to_edit:
-                                # Update existing agent
+                                # Update existing agent - create AgentUpdate model
                                 agent_id = str(agent_to_edit.agent.id)
-                                provider.update_agent(agent_id, agent_data)
+                                agent_update = AgentUpdate(
+                                    config=agent_config,
+                                    version_label=version_label,
+                                    notes=version_notes,
+                                )
+                                provider.update_agent(agent_id, agent_update)
                             else:
-                                # Create new agent
-                                provider.create_agent(agent_data)
+                                # Create new agent - create AgentCreate model
+                                agent_create = AgentCreate(
+                                    name=name,
+                                    description=description,
+                                    agent_type=agent_type,
+                                    config=agent_config,
+                                    version_label="v1.0",
+                                    notes="Initial version",
+                                )
+                                provider.create_agent(agent_create)
 
                             # Success!
                             st.success(f"Agent '{name}' {action_type}d successfully!")
