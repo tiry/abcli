@@ -12,14 +12,19 @@ from ab_cli.api.exceptions import APIError
 from ab_cli.cli.client_utils import get_client_with_error_handling
 from ab_cli.cli.common_options import profile_option
 from ab_cli.config.loader import find_config_file, load_config_with_profile
+from ab_cli.config.settings import ABSettings
 from ab_cli.services.resource_service import ResourceService
 
 console = Console()
 
 
-def get_client(config_path: str | None = None) -> AgentBuilderClient:
+def get_client(
+    config_path: str | None = None,
+    profile: str | None = None,
+    settings: ABSettings | None = None,
+) -> AgentBuilderClient:
     """Get an authenticated API client with user-friendly error handling."""
-    return get_client_with_error_handling(config_path)
+    return get_client_with_error_handling(config_path, profile, settings)
 
 
 def output_json(data: dict) -> None:
@@ -74,7 +79,11 @@ def list_models(
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             resource_service = ResourceService(client)
             result = resource_service.list_models(agent_type=agent_type, limit=limit, offset=offset)
 
@@ -146,7 +155,11 @@ def list_guardrails(ctx: click.Context, limit: int, offset: int, output_format: 
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             resource_service = ResourceService(client)
             result = resource_service.list_guardrails(limit=limit, offset=offset)
 

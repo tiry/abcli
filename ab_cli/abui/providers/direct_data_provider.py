@@ -10,6 +10,7 @@ from ab_cli.abui.providers.data_provider import DataProvider
 from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.pagination import PaginatedResult
 from ab_cli.config.loader import find_config_file, load_config
+from ab_cli.config.settings import ABSettings
 from ab_cli.models.agent import Agent, AgentCreate, AgentUpdate, AgentVersion, Version, VersionList
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import GuardrailList, LLMModelList
@@ -32,14 +33,16 @@ class DirectDataProvider(DataProvider):
     - Better error handling
     """
 
-    def __init__(self) -> None:
+    def __init__(self, settings: ABSettings | None = None) -> None:
         """Initialize the direct data provider.
 
-        Loads configuration and initializes API client and service layer.
+        Args:
+            settings: Optional settings object. If not provided, loads from config file.
         """
-        # Load configuration
-        config_file = find_config_file()
-        settings = load_config(config_file)
+        # Use provided settings or load from config file
+        if settings is None:
+            config_file = find_config_file()
+            settings = load_config(config_file)
 
         # Initialize API client
         self.client = AgentBuilderClient(settings)

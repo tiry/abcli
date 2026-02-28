@@ -80,6 +80,9 @@ def main(ctx: click.Context, verbose: bool, config: Path | None, profile: str | 
                     console.print(
                         f"[dim]Loaded config from: {config_path} (profile: {profile})[/dim]"
                     )
+                    settings = ctx.obj["settings"]
+                    console.print(f"[dim]  → client_id: {settings.client_id[:12]}...[/dim]")
+                    console.print(f"[dim]  → api_endpoint: {settings.api_endpoint}[/dim]")
             else:
                 ctx.obj["settings"] = load_config(config_path)
                 if verbose:
@@ -167,8 +170,24 @@ def check(ctx: click.Context, config_override: str | None, auth_only: bool) -> N
         sys.exit(1)
 
     try:
-        settings = load_config(config_path)
-        console.print("[green]  ✓ Configuration loaded successfully[/green]")
+        # Use profile-aware settings from context if available
+        profile = ctx.obj.get("profile")
+        if profile and ctx.obj.get("settings"):
+            # Settings already loaded with profile in main()
+            settings = ctx.obj["settings"]
+            console.print(
+                f"[green]  ✓ Configuration loaded successfully (profile: {profile})[/green]"
+            )
+        elif profile:
+            # Profile specified but settings not in context, load with profile
+            settings = load_config_with_profile(config_path, profile=profile)
+            console.print(
+                f"[green]  ✓ Configuration loaded successfully (profile: {profile})[/green]"
+            )
+        else:
+            # No profile, load normally
+            settings = load_config(config_path)
+            console.print("[green]  ✓ Configuration loaded successfully[/green]")
         console.print()
         console.print("  Configuration Summary:")
         console.print(f"    API endpoint:     {settings.api_endpoint}")

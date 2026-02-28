@@ -42,16 +42,40 @@ class CLIDataProvider(DataProvider):
     as subprocesses, while converting responses to strongly-typed models.
     """
 
-    def __init__(self, config: Any = None, verbose: bool = False):
+    def __init__(self, config: Any = None, verbose: bool = False, settings: Any = None):
         """Initialize with configuration and verbose flag.
 
         Args:
-            config: Configuration object with necessary settings
+            config: Configuration object with necessary settings (deprecated, use settings)
             verbose: Whether to print verbose debugging output
+            settings: Settings object from session state (preferred, includes profile info)
         """
-        self.config = config
+        # Prefer settings over config for consistency with DirectDataProvider
+        self.settings = settings if settings is not None else config
+        self.config = self.settings  # Backward compatibility
         self.verbose = verbose if verbose is not None else False
         self.cache: dict[str, Any] = {}
+
+        # Extract profile if available
+        self.profile: str | None = None
+        self.config_path: str | None = None
+
+        if self.settings:
+            # Get config path
+            if hasattr(self.settings, "config_path"):
+                self.config_path = str(self.settings.config_path)
+
+            # Get profile from session state
+            try:
+                import streamlit as st
+
+                if "current_profile" in st.session_state:
+                    profile = st.session_state.current_profile
+                    # Don't use "default" as it's the no-profile case
+                    if profile and profile != "default":
+                        self.profile = profile
+            except Exception:
+                pass  # Streamlit not available or session state not initialized
 
     def _run_command(self, cmd_parts: list[str], use_cache: bool = True) -> dict[str, Any]:
         """Run a CLI command and parse its JSON output.
@@ -76,8 +100,13 @@ class CLIDataProvider(DataProvider):
         if self.verbose:
             cmd.append("--verbose")
 
-        if self.config and hasattr(self.config, "config_path") and self.config.config_path:
-            cmd.extend(["--config", str(self.config.config_path)])
+        # Add config path if available
+        if self.config_path:
+            cmd.extend(["--config", self.config_path])
+
+        # Add profile if available (must come after --config)
+        if self.profile:
+            cmd.extend(["--profile", self.profile])
 
         cmd.extend(cmd_parts)
 

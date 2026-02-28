@@ -19,14 +19,19 @@ from ab_cli.cli.pagination_utils import (
     show_pagination_info,
 )
 from ab_cli.config.loader import find_config_file, load_config, load_config_with_profile
+from ab_cli.config.settings import ABSettings
 from ab_cli.services.agent_service import AgentService
 
 console = Console()
 
 
-def get_client(config_path: str | None = None) -> AgentBuilderClient:
+def get_client(
+    config_path: str | None = None,
+    profile: str | None = None,
+    settings: ABSettings | None = None,
+) -> AgentBuilderClient:
     """Get an authenticated API client with user-friendly error handling."""
-    return get_client_with_error_handling(config_path)
+    return get_client_with_error_handling(config_path, profile, settings)
 
 
 def output_json(data: dict) -> None:
@@ -125,7 +130,9 @@ def list_agents(
             except Exception:
                 pass  # Use default pagination settings
 
-            with get_client(config_path) as client:
+            profile = ctx.obj.get("profile") if ctx.obj else None
+            settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+            with get_client(config_path, profile, settings_from_ctx) as client:
                 while True:
                     # Fetch current page
                     result = fetch_agents_paginated(
@@ -200,7 +207,9 @@ def list_agents(
         except Exception:
             pass  # Use default pagination settings
 
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+        with get_client(config_path, profile, settings_from_ctx) as client:
             # Use pagination module (handles all API and filtering logic)
             result = fetch_agents_paginated(
                 client=client,
@@ -304,7 +313,11 @@ def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             result = agent_service.get_agent(agent_id)
 
@@ -394,7 +407,11 @@ def create_agent(
         raise SystemExit(1)
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             result = agent_service.create_agent(
                 {
@@ -465,7 +482,11 @@ def update_agent(
             raise SystemExit(1)
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             result = agent_service.update_agent(
                 agent_id,
@@ -546,7 +567,11 @@ def patch_agent(
         return
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             result = agent_service.patch_agent(agent_id, name=name, description=description)
 
@@ -580,7 +605,11 @@ def delete_agent(ctx: click.Context, agent_id: str, yes: bool) -> None:
         return
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             agent_service.delete_agent(agent_id)
             console.print(f"[green]✓[/green] Agent deleted: {agent_id}")
@@ -608,7 +637,11 @@ def list_agent_types(ctx: click.Context, output_format: str) -> None:
     config_path = ctx.obj.get("config_path") if ctx.obj else None
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             agent_service = AgentService(client)
             result = agent_service.list_agent_types()
 

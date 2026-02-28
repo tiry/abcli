@@ -17,6 +17,7 @@ from ab_cli.api.exceptions import APIError, NotFoundError
 from ab_cli.cli.client_utils import get_client_with_error_handling
 from ab_cli.cli.common_options import profile_option
 from ab_cli.config.loader import find_config_file, load_config_with_profile
+from ab_cli.config.settings import ABSettings
 from ab_cli.models.invocation import (
     ChatMessage,
     InvokeRequest,
@@ -29,9 +30,13 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-def get_client(config_path: str | None = None) -> AgentBuilderClient:
+def get_client(
+    config_path: str | None = None,
+    profile: str | None = None,
+    settings: ABSettings | None = None,
+) -> AgentBuilderClient:
     """Get an authenticated API client with user-friendly error handling."""
-    return get_client_with_error_handling(config_path)
+    return get_client_with_error_handling(config_path, profile, settings)
 
 
 def output_json(data: dict) -> None:
@@ -192,7 +197,11 @@ def chat(
     )
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             if stream:
                 # Streaming mode
                 console.print(f"[dim]Invoking agent {agent_id} with streaming...[/dim]")
@@ -292,7 +301,11 @@ def task(
     request = InvokeTaskRequest(inputs=inputs)
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             if stream:
                 # Streaming mode
                 console.print(f"[dim]Invoking task agent {agent_id} with streaming...[/dim]")
@@ -375,7 +388,11 @@ def interactive(
     messages: list[ChatMessage] = []  # Chat history
 
     try:
-        with get_client(config_path) as client:
+        profile = ctx.obj.get("profile") if ctx.obj else None
+
+        settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
             # Verify agent exists before starting session (use AgentService)
             agent_service = AgentService(client)
             agent = agent_service.get_agent(agent_id, version_id)

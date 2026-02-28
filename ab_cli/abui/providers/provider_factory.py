@@ -26,11 +26,17 @@ def get_data_provider(config: Any) -> DataProvider:
     if "data_provider" in st.session_state:
         return st.session_state.data_provider
 
-    # Default to direct provider (faster, no subprocess overhead)
-    provider_type = "direct"
+    # Check if we've already logged provider initialization (to avoid spam on reruns)
+    provider_logged = st.session_state.get("provider_logged", False)
 
-    # Check config for provider type
-    # Handle Pydantic model where ui might be None
+    # Determine provider type with proper priority:
+    # 1. Environment variable (command-line override via --direct, --cli, --mock)
+    # 2. Config file ui.data_provider setting
+    # 3. Default to "direct" (faster, no subprocess overhead)
+
+    provider_type = "direct"  # Final fallback default
+
+    # Check config for provider type FIRST
     if (
         config
         and hasattr(config, "ui")
@@ -39,7 +45,7 @@ def get_data_provider(config: Any) -> DataProvider:
     ):
         provider_type = config.ui.data_provider
 
-    # Also check environment variable (for easier testing)
+    # Environment variable OVERRIDES config (set by command-line flags)
     if os.environ.get("AB_UI_DATA_PROVIDER"):
         provider_type = os.environ.get("AB_UI_DATA_PROVIDER", "").lower()
 
@@ -61,9 +67,10 @@ def get_data_provider(config: Any) -> DataProvider:
             and getattr(config.ui, "verbose", False)
         )
 
-    # Log which provider we're using
-    if verbose:
+    # Log which provider we're using (only once)
+    if verbose and not provider_logged:
         print(f"Data provider type from config: {provider_type}")
+        st.session_state.provider_logged = True
 
     # Create provider instance
     provider: DataProvider
@@ -74,16 +81,46 @@ def get_data_provider(config: Any) -> DataProvider:
     elif provider_type.lower() == "cli":
         if verbose:
             print("Using CLI data provider (subprocess-based)")
-        provider = CLIDataProvider(config, verbose)
+        # Pass settings from session state if available (for profile support)
+        settings = st.session_state.get("settings") if hasattr(st, "session_state") else None
+        if verbose:
+            if settings:
+                print("  → Initializing CLIDataProvider with settings from session state")
+                print(f"  → API Endpoint: {settings.api_endpoint}")
+                print(f"  → Client ID: {settings.client_id}")
+            else:
+                print("  → Initializing CLIDataProvider without settings (will load from config)")
+        provider = CLIDataProvider(config, verbose, settings=settings)
     elif provider_type.lower() == "direct":
         if verbose:
             print("Using Direct data provider (service layer, no subprocess)")
-        provider = DirectDataProvider()
+        # Pass settings from session state if available (for profile support)
+        settings = st.session_state.get("settings") if hasattr(st, "session_state") else None
+        if verbose:
+            if settings:
+                print("  → Initializing DirectDataProvider with settings from session state")
+                print(f"  → API Endpoint: {settings.api_endpoint}")
+                print(f"  → Client ID: {settings.client_id}")
+            else:
+                print(
+                    "  → Initializing DirectDataProvider without settings (will load from config)"
+                )
+        provider = DirectDataProvider(settings=settings)
     else:
         # Default to direct provider
         if verbose:
             print(f"Unknown provider type '{provider_type}', defaulting to Direct provider")
-        provider = DirectDataProvider()
+        settings = st.session_state.get("settings") if hasattr(st, "session_state") else None
+        if verbose:
+            if settings:
+                print("  → Initializing DirectDataProvider with settings from session state")
+                print(f"  → API Endpoint: {settings.api_endpoint}")
+                print(f"  → Client ID: {settings.client_id}")
+            else:
+                print(
+                    "  → Initializing DirectDataProvider without settings (will load from config)"
+                )
+        provider = DirectDataProvider(settings=settings)
 
     # Cache provider instance in session state
     st.session_state.data_provider = provider

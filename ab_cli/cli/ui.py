@@ -87,27 +87,30 @@ def ui(
         return 1
 
     # Determine data provider backend
+    # Only set if explicitly specified via flags
+    provider_type = None
     if mock:
         provider_type = "mock"
     elif direct:
         provider_type = "direct"
     elif cli:
         provider_type = "cli"
-    else:
-        # Default to CLI provider for backward compatibility
-        provider_type = "cli"
 
     # Use the abui module from ab_cli package
     try:
-        # Set the environment variable for the data provider
-        os.environ["AB_UI_DATA_PROVIDER"] = provider_type
-        if verbose:
-            provider_names = {
-                "mock": "Mock data provider (testing/demo)",
-                "direct": "Direct API provider (recommended)",
-                "cli": "CLI subprocess provider (legacy)",
-            }
-            print(f"Data provider: {provider_names[provider_type]}")
+        # Only set environment variable if explicitly specified via command line
+        # Otherwise, let the config file determine the provider type
+        if provider_type:
+            os.environ["AB_UI_DATA_PROVIDER"] = provider_type
+            if verbose:
+                provider_names = {
+                    "mock": "Mock data provider (testing/demo)",
+                    "direct": "Direct API provider (recommended)",
+                    "cli": "CLI subprocess provider (legacy)",
+                }
+                print(f"Data provider: {provider_names[provider_type]}")
+        elif verbose:
+            print("Data provider: Using setting from config file")
 
         # The app.py is directly in the abui module
         app_path = os.path.join(os.path.dirname(__file__), "..", "abui", "app.py")
@@ -137,8 +140,8 @@ def ui(
         if verbose:
             cmd.extend(["--verbose"])
 
-        # Pass provider type to the app
-        if provider_type != "cli":
+        # Pass provider type to the app (only if explicitly set)
+        if provider_type and provider_type != "cli":
             cmd.extend(["--provider", provider_type])
 
         console.print(f"[cyan]Launching Agent Builder UI on port {port}...[/cyan]")

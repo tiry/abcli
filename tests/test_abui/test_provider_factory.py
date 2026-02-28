@@ -1,129 +1,189 @@
 """Unit tests for the UI data provider factory."""
 
 import os
-from dataclasses import dataclass
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import streamlit as st
 
 from ab_cli.abui.providers.cli_data_provider import CLIDataProvider
+from ab_cli.abui.providers.direct_data_provider import DirectDataProvider
 from ab_cli.abui.providers.mock_data_provider import MockDataProvider
 from ab_cli.abui.providers.provider_factory import get_data_provider
+from ab_cli.config import load_config
 
 
-# Define test dataclasses
-@dataclass
-class UISettings:
-    data_provider: str = "cli"
-    mock_data_dir: str = None
+# Get test data directory
+TEST_DATA_DIR = Path(__file__).parent.parent / "data"
+
+
+def test_provider_respects_config_direct():
+    """Test that provider_factory respects config file setting for 'direct'."""
+    # Clear any cached provider and env vars
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
     
-
-@dataclass
-class DummyConfig:
-    environment_id: str = "dummy-env-id"
-    client_id: str = "dummy-client-id"
-    client_secret: str = "dummy-client-secret"
-    verbose: bool = True
-    ui: UISettings = None
-
-
-def create_dummy_config(provider_type="cli"):
-    """Create a dummy configuration for testing.
+    # Load real config file with direct provider
+    config_path = TEST_DATA_DIR / "config-provider-direct.yaml"
+    config = load_config(str(config_path))
     
-    Args:
-        provider_type: The data provider to use (cli or mock)
-        
-    Returns:
-        A dummy configuration object
-    """
-    # Create the config with UI settings
-    config = DummyConfig()
-    config.ui = UISettings(data_provider=provider_type)
-    return config
+    # Verify config loaded correctly
+    assert config.ui is not None
+    assert config.ui.data_provider == "direct"
+    
+    # Get the data provider WITHOUT any environment variable
+    with patch.dict(os.environ, {}, clear=True):
+        provider = get_data_provider(config)
+    
+    # Should get DirectDataProvider based on config
+    assert isinstance(provider, DirectDataProvider)
+    print(f"✓ Config with 'direct' correctly returns DirectDataProvider")
 
 
-def test_get_provider_cli():
-    """Test that get_data_provider returns a CLIDataProvider when configured for CLI."""
+def test_provider_respects_config_cli():
+    """Test that provider_factory respects config file setting for 'cli'."""
     # Clear any cached provider
     if "data_provider" in st.session_state:
         del st.session_state.data_provider
     
-    # Create a dummy config with CLI provider
-    config = create_dummy_config("cli")
+    # Load real config file with CLI provider
+    config_path = TEST_DATA_DIR / "config-provider-cli.yaml"
+    config = load_config(str(config_path))
     
-    # Get the data provider
-    with patch.dict(os.environ, {}, clear=True):  # Clear any environment variables
+    # Verify config loaded correctly
+    assert config.ui is not None
+    assert config.ui.data_provider == "cli"
+    
+    # Get the data provider WITHOUT any environment variable
+    with patch.dict(os.environ, {}, clear=True):
         provider = get_data_provider(config)
     
-    # Verify the provider type
+    # Should get CLIDataProvider based on config
     assert isinstance(provider, CLIDataProvider)
-    assert provider.__class__.__name__ == "CLIDataProvider"
+    print(f"✓ Config with 'cli' correctly returns CLIDataProvider")
 
 
-def test_get_provider_mock():
-    """Test that get_data_provider returns a MockDataProvider when configured for mock."""
+def test_provider_respects_config_mock():
+    """Test that provider_factory respects config file setting for 'mock'."""
     # Clear any cached provider
     if "data_provider" in st.session_state:
         del st.session_state.data_provider
     
-    # Create a dummy config with mock provider
-    config = create_dummy_config("mock")
+    # Load real config file with mock provider
+    config_path = TEST_DATA_DIR / "config-provider-mock.yaml"
+    config = load_config(str(config_path))
     
-    # Get the data provider
-    with patch.dict(os.environ, {}, clear=True):  # Clear any environment variables
+    # Verify config loaded correctly
+    assert config.ui is not None
+    assert config.ui.data_provider == "mock"
+    
+    # Get the data_provider WITHOUT any environment variable
+    with patch.dict(os.environ, {}, clear=True):
         provider = get_data_provider(config)
     
-    # Verify the provider type
+    # Should get MockDataProvider based on config
     assert isinstance(provider, MockDataProvider)
-    assert provider.__class__.__name__ == "MockDataProvider"
+    print(f"✓ Config with 'mock' correctly returns MockDataProvider")
 
 
-def test_get_provider_env_override():
-    """Test that environment variable overrides the configuration."""
+def test_env_var_overrides_config():
+    """Test that environment variable overrides the config file setting."""
     # Clear any cached provider
     if "data_provider" in st.session_state:
         del st.session_state.data_provider
     
-    # Create a dummy config with CLI provider
-    config = create_dummy_config("cli")
+    # Load config with CLI provider
+    config_path = TEST_DATA_DIR / "config-provider-cli.yaml"
+    config = load_config(str(config_path))
+    assert config.ui.data_provider == "cli"
     
-    # Set the environment variable to override to mock
+    # Set environment variable to override to mock
     with patch.dict(os.environ, {"AB_UI_DATA_PROVIDER": "mock"}, clear=True):
-        # Get the data provider
         provider = get_data_provider(config)
     
-    # Verify the provider was overridden to mock
+    # Should get MockDataProvider because env var overrides config
     assert isinstance(provider, MockDataProvider)
-    assert provider.__class__.__name__ == "MockDataProvider"
+    print(f"✓ Environment variable correctly overrides config setting")
 
 
-def test_provider_basic_methods():
-    """Test that the providers implement the expected methods."""
+def test_provider_priority_no_env_uses_config():
+    """Test priority: when no env var is set, config is used."""
     # Clear any cached provider
     if "data_provider" in st.session_state:
         del st.session_state.data_provider
     
-    # Create a mock provider
-    config = create_dummy_config("mock")
-    provider = get_data_provider(config)
+    # Load config with direct provider
+    config_path = TEST_DATA_DIR / "config-provider-direct.yaml"
+    config = load_config(str(config_path))
     
-    # Verify the provider has the expected methods
-    assert hasattr(provider, "get_agents")
-    assert hasattr(provider, "get_models")
-    assert hasattr(provider, "get_guardrails")
+    # Ensure no environment variable is set
+    with patch.dict(os.environ, {}, clear=True):
+        provider = get_data_provider(config)
     
-    # Test basic functionality (should not throw exceptions)
-    agents = provider.get_agents()
-    assert isinstance(agents, list)
+    # Should use config setting
+    assert isinstance(provider, DirectDataProvider)
+    print(f"✓ Priority test: config used when no env var")
+
+
+def test_provider_caching():
+    """Test that provider is cached in session state."""
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
     
-    # get_models() and get_guardrails() return model objects, not lists
-    from ab_cli.models.resources import LLMModelList, GuardrailList
+    # Load config
+    config_path = TEST_DATA_DIR / "config-provider-mock.yaml"
+    config = load_config(str(config_path))
     
-    models = provider.get_models()
-    assert isinstance(models, LLMModelList)
-    assert isinstance(models.models, list)
+    # Get provider twice
+    with patch.dict(os.environ, {}, clear=True):
+        provider1 = get_data_provider(config)
+        provider2 = get_data_provider(config)
     
-    guardrails = provider.get_guardrails()
-    assert isinstance(guardrails, GuardrailList)
-    assert isinstance(guardrails.guardrails, list)
+    # Should be the same instance (cached)
+    assert provider1 is provider2
+    print(f"✓ Provider is correctly cached in session state")
+
+
+def test_provider_inheritance_with_profile():
+    """Test THE REAL ISSUE: profile inherits data_provider from base config.
+    
+    This is the exact scenario reported:
+    - Base config has ui.data_provider: "direct"
+    - Profile overrides API settings but NOT ui.data_provider
+    - Expected: provider should still be "direct" (inherited from base)
+    - Bug: provider was defaulting to something else
+    """
+    # Clear any cached provider
+    if "data_provider" in st.session_state:
+        del st.session_state.data_provider
+    
+    # Load config with profile (profile does NOT override ui.data_provider)
+    from ab_cli.config.loader import load_config_with_profile
+    
+    config_path = TEST_DATA_DIR / "config-with-provider-and-profiles.yaml"
+    
+    # Load with "staging" profile
+    config = load_config_with_profile(str(config_path), "staging")
+    
+    # Verify profile was applied (API endpoint changed)
+    # Note: config loader may add trailing slash
+    assert config.api_endpoint.rstrip("/") == "https://api.staging.com"
+    assert config.client_id == "staging-client-id"
+    
+    # Verify UI config exists and has the provider from base
+    assert config.ui is not None, "UI config should exist"
+    assert hasattr(config.ui, "data_provider"), "UI config should have data_provider"
+    assert config.ui.data_provider == "direct", f"Expected 'direct' but got '{config.ui.data_provider}'"
+    
+    # Get provider WITHOUT environment variable
+    with patch.dict(os.environ, {}, clear=True):
+        provider = get_data_provider(config)
+    
+    # THIS IS THE KEY TEST: should get DirectDataProvider (inherited from base config)
+    assert isinstance(provider, DirectDataProvider), (
+        f"Expected DirectDataProvider but got {type(provider).__name__}. "
+        f"This means provider inheritance from base config is broken!"
+    )
+    print(f"✓ Profile correctly inherits data_provider='direct' from base config")

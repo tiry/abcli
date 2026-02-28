@@ -97,3 +97,97 @@ class TestGetClientWithErrorHandling:
             assert exc_info.value.code == 1
             mock_load.assert_called_once_with('/custom/config.yaml')
             assert mock_console.print.called
+
+    def test_get_client_uses_provided_settings(self):
+        """Test that function uses provided settings instead of loading from file."""
+        from ab_cli.config.settings import ABSettings
+
+        mock_settings = ABSettings(
+            api_endpoint="https://api.provided.com",
+            auth_endpoint="https://auth.provided.com",
+            client_id="provided-client",
+            client_secret="provided-secret",
+            environment_id="provided-env",
+        )
+
+        with patch('ab_cli.cli.client_utils.AgentBuilderClient') as mock_client, \
+             patch('ab_cli.cli.client_utils.load_config') as mock_load, \
+             patch('ab_cli.cli.client_utils.load_config_with_profile') as mock_load_profile:
+            
+            mock_client_instance = Mock()
+            mock_client.return_value = mock_client_instance
+            
+            # Call with settings - should not try to load from file
+            result = get_client_with_error_handling(settings=mock_settings)
+            
+            assert result == mock_client_instance
+            mock_client.assert_called_once_with(mock_settings)
+            # Verify no config loading was attempted
+            mock_load.assert_not_called()
+            mock_load_profile.assert_not_called()
+
+    def test_get_client_loads_with_profile(self):
+        """Test that function loads config with profile when profile parameter is provided."""
+        with patch('ab_cli.cli.client_utils.find_config_file') as mock_find, \
+             patch('ab_cli.cli.client_utils.load_config_with_profile') as mock_load_profile, \
+             patch('ab_cli.cli.client_utils.AgentBuilderClient') as mock_client:
+            
+            mock_settings = Mock()
+            mock_find.return_value = 'config.yaml'
+            mock_load_profile.return_value = mock_settings
+            mock_client_instance = Mock()
+            mock_client.return_value = mock_client_instance
+            
+            result = get_client_with_error_handling(profile="dev")
+            
+            assert result == mock_client_instance
+            mock_load_profile.assert_called_once_with('config.yaml', profile="dev")
+            mock_client.assert_called_once_with(mock_settings)
+
+    def test_get_client_profile_not_found_error(self):
+        """Test that ValueError from profile not found is handled gracefully."""
+        with patch('ab_cli.cli.client_utils.find_config_file') as mock_find, \
+             patch('ab_cli.cli.client_utils.load_config_with_profile') as mock_load_profile, \
+             patch('ab_cli.cli.client_utils.error_console') as mock_console:
+            
+            mock_find.return_value = 'config.yaml'
+            mock_load_profile.side_effect = ValueError("Profile 'nonexistent' not found")
+            
+            with pytest.raises(SystemExit) as exc_info:
+                get_client_with_error_handling(profile="nonexistent")
+            
+            assert exc_info.value.code == 1
+            mock_load_profile.assert_called_once_with('config.yaml', profile="nonexistent")
+            # Verify error message was printed
+            assert mock_console.print.called
+            print_calls = [str(call) for call in mock_console.print.call_args_list]
+            assert any('Profile error' in str(call) for call in print_calls)
+            assert any('ab profiles list' in str(call) for call in print_calls)
+
+    def test_get_client_settings_takes_precedence_over_profile(self):
+        """Test that provided settings take precedence over profile parameter."""
+        from ab_cli.config.settings import ABSettings
+
+        mock_settings = ABSettings(
+            api_endpoint="https://api.settings.com",
+            auth_endpoint="https://auth.settings.com",
+            client_id="settings-client",
+            client_secret="settings-secret",
+            environment_id="settings-env",
+        )
+
+        with patch('ab_cli.cli.client_utils.AgentBuilderClient') as mock_client, \
+             patch('ab_cli.cli.client_utils.load_config_with_profile') as mock_load_profile:
+            
+            mock_client_instance = Mock()
+            mock_client.return_value = mock_client_instance
+            
+            # Call with both settings and profile - settings should win
+            result = get_client_with_error_handling(
+                config_path="/some/path", profile="dev", settings=mock_settings
+            )
+            
+            assert result == mock_client_instance
+            mock_client.assert_called_once_with(mock_settings)
+            # Verify profile loading was not attempted
+            mock_load_profile.assert_not_called()
