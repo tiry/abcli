@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import streamlit as st
@@ -32,13 +32,20 @@ def test_provider_respects_config_direct():
     assert config.ui is not None
     assert config.ui.data_provider == "direct"
     
-    # Get the data provider WITHOUT any environment variable
-    with patch.dict(os.environ, {}, clear=True):
-        provider = get_data_provider(config)
+    # Store config in session state so DirectDataProvider can use it
+    st.session_state["settings"] = config
     
-    # Should get DirectDataProvider based on config
-    assert isinstance(provider, DirectDataProvider)
-    print(f"✓ Config with 'direct' correctly returns DirectDataProvider")
+    # Mock AgentBuilderClient to avoid needing real credentials
+    with patch("ab_cli.abui.providers.direct_data_provider.AgentBuilderClient") as mock_client:
+        mock_client.return_value = MagicMock()
+        
+        # Get the data provider WITHOUT any environment variable
+        with patch.dict(os.environ, {}, clear=True):
+            provider = get_data_provider(config)
+        
+        # Should get DirectDataProvider based on config
+        assert isinstance(provider, DirectDataProvider)
+        print(f"✓ Config with 'direct' correctly returns DirectDataProvider")
 
 
 def test_provider_respects_config_cli():
@@ -117,13 +124,20 @@ def test_provider_priority_no_env_uses_config():
     config_path = TEST_DATA_DIR / "config-provider-direct.yaml"
     config = load_config(str(config_path))
     
-    # Ensure no environment variable is set
-    with patch.dict(os.environ, {}, clear=True):
-        provider = get_data_provider(config)
+    # Store config in session state
+    st.session_state["settings"] = config
     
-    # Should use config setting
-    assert isinstance(provider, DirectDataProvider)
-    print(f"✓ Priority test: config used when no env var")
+    # Mock AgentBuilderClient
+    with patch("ab_cli.abui.providers.direct_data_provider.AgentBuilderClient") as mock_client:
+        mock_client.return_value = MagicMock()
+        
+        # Ensure no environment variable is set
+        with patch.dict(os.environ, {}, clear=True):
+            provider = get_data_provider(config)
+        
+        # Should use config setting
+        assert isinstance(provider, DirectDataProvider)
+        print(f"✓ Priority test: config used when no env var")
 
 
 def test_provider_caching():
@@ -177,13 +191,20 @@ def test_provider_inheritance_with_profile():
     assert hasattr(config.ui, "data_provider"), "UI config should have data_provider"
     assert config.ui.data_provider == "direct", f"Expected 'direct' but got '{config.ui.data_provider}'"
     
-    # Get provider WITHOUT environment variable
-    with patch.dict(os.environ, {}, clear=True):
-        provider = get_data_provider(config)
+    # Store config in session state
+    st.session_state["settings"] = config
     
-    # THIS IS THE KEY TEST: should get DirectDataProvider (inherited from base config)
-    assert isinstance(provider, DirectDataProvider), (
-        f"Expected DirectDataProvider but got {type(provider).__name__}. "
-        f"This means provider inheritance from base config is broken!"
-    )
-    print(f"✓ Profile correctly inherits data_provider='direct' from base config")
+    # Mock AgentBuilderClient
+    with patch("ab_cli.abui.providers.direct_data_provider.AgentBuilderClient") as mock_client:
+        mock_client.return_value = MagicMock()
+        
+        # Get provider WITHOUT environment variable
+        with patch.dict(os.environ, {}, clear=True):
+            provider = get_data_provider(config)
+        
+        # THIS IS THE KEY TEST: should get DirectDataProvider (inherited from base config)
+        assert isinstance(provider, DirectDataProvider), (
+            f"Expected DirectDataProvider but got {type(provider).__name__}. "
+            f"This means provider inheritance from base config is broken!"
+        )
+        print(f"✓ Profile correctly inherits data_provider='direct' from base config")

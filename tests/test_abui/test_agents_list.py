@@ -35,7 +35,7 @@ def test_agents_list_displays_page_title(test_data_provider: TestDataProvider) -
     assert test_data_provider.get_call_count("get_agents") >= 1
 
 
-def test_agents_list_has_create_button() -> None:
+def test_agents_list_has_create_button(test_data_provider: TestDataProvider) -> None:
     """Test that the agents list has a create agent button."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agents_page_test)
@@ -43,6 +43,7 @@ def test_agents_list_has_create_button() -> None:
     # Set up the session state
     app_test.session_state["current_page"] = "Agents"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     app_test.session_state["agent_view_mode"] = "Cards"
     
     # Run the app
@@ -87,7 +88,7 @@ def test_agents_list_error_state(test_data_provider: TestDataProvider) -> None:
     assert error_displayed, "Error message not displayed when fetching agents fails"
 
 
-def test_create_agent_button_exists() -> None:
+def test_create_agent_button_exists(test_data_provider: TestDataProvider) -> None:
     """Test that the Create Agent button exists."""
     # Create a test AppTest instance
     app_test = AppTest.from_function(show_agents_page_test)
@@ -95,6 +96,7 @@ def test_create_agent_button_exists() -> None:
     # Set up the session state
     app_test.session_state["current_page"] = "Agents"
     app_test.session_state["config"] = {"ui": {"mock": True}}
+    app_test.session_state["data_provider"] = test_data_provider
     app_test.session_state["agent_view_mode"] = "Cards"
     
     # Run the app
