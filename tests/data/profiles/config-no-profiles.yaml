@@ -1,0 +1,8 @@
+# Test configuration file without profiles
+client_id: "test-client-id"
+client_secret: "test-client-secret"
+api_endpoint: "https://api.test.example.com/"
+auth_endpoint: "https://auth.test.example.com/token"
+timeout: 30.0
+max_retries: 3
+default_output_format: "table"

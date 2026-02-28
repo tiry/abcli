@@ -10,6 +10,8 @@ from rich.table import Table
 from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.exceptions import APIError, NotFoundError
 from ab_cli.cli.client_utils import get_client_with_error_handling
+from ab_cli.cli.common_options import profile_option
+from ab_cli.config.loader import find_config_file, load_config_with_profile
 from ab_cli.services.version_service import VersionService
 
 console = Console()
@@ -31,9 +33,22 @@ def output_yaml(data: dict) -> None:
 
 
 @click.group()
-def versions() -> None:
+@profile_option
+@click.pass_context
+def versions(ctx: click.Context, profile: str | None) -> None:
     """Manage agent versions (list, get, create)."""
-    pass
+    ctx.ensure_object(dict)
+    if profile:
+        ctx.obj["profile"] = profile
+        config_path = ctx.obj.get("config_path") or find_config_file()
+        if config_path:
+            try:
+                ctx.obj["settings"] = load_config_with_profile(config_path, profile=profile)
+            except ValueError as e:
+                console.print(f"[red]Profile error:[/red] {e}")
+                console.print("\nTo see available profiles, run:")
+                console.print("  [cyan]ab profiles list[/cyan]")
+                raise SystemExit(1)
 
 
 @versions.command("list")

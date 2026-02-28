@@ -22,6 +22,7 @@ from ab_cli.config import (
     load_config,
     validate_config_file,
 )
+from ab_cli.config.loader import load_config_with_profile
 
 # Rich console for formatted output
 console = Console()
@@ -36,9 +37,14 @@ error_console = Console(stderr=True)
     type=click.Path(exists=True, path_type=Path),
     help="Path to configuration file",
 )
+@click.option(
+    "--profile",
+    type=str,
+    help="Configuration profile to use (e.g., dev, staging, prod)",
+)
 @click.version_option(__version__, prog_name="ab-cli")
 @click.pass_context
-def main(ctx: click.Context, verbose: bool, config: Path | None) -> None:
+def main(ctx: click.Context, verbose: bool, config: Path | None, profile: str | None) -> None:
     """Agent Builder CLI - Manage and invoke AI agents.
 
     Use 'ab COMMAND --help' for more information about a command.
@@ -49,6 +55,7 @@ def main(ctx: click.Context, verbose: bool, config: Path | None) -> None:
     # Find and load configuration
     config_path = config or find_config_file()
     ctx.obj["config_path"] = str(config_path) if config_path else None
+    ctx.obj["profile"] = profile  # Store profile for subcommands
 
     # If no subcommand was provided, show helpful message
     if ctx.invoked_subcommand is None:
@@ -66,13 +73,28 @@ def main(ctx: click.Context, verbose: bool, config: Path | None) -> None:
 
     if config_path:
         try:
-            ctx.obj["settings"] = load_config(config_path)
-            if verbose:
-                console.print(f"[dim]Loaded config from: {config_path}[/dim]")
+            # Load config with profile support
+            if profile:
+                ctx.obj["settings"] = load_config_with_profile(config_path, profile=profile)
+                if verbose:
+                    console.print(
+                        f"[dim]Loaded config from: {config_path} (profile: {profile})[/dim]"
+                    )
+            else:
+                ctx.obj["settings"] = load_config(config_path)
+                if verbose:
+                    console.print(f"[dim]Loaded config from: {config_path}[/dim]")
         except ConfigurationError as e:
             error_console.print(f"[red]Configuration error:[/red] {e}")
             error_console.print("\nTo fix your configuration, run:")
             error_console.print("  [cyan]ab configure[/cyan]")
+            sys.exit(1)
+        except ValueError as e:
+            # Profile not found
+            error_msg = str(e).replace("[", "\\[").replace("]", "\\]")
+            error_console.print(f"[red]Profile error:[/red] {error_msg}")
+            error_console.print("\nTo see available profiles, run:")
+            error_console.print("  [cyan]ab profiles list[/cyan]")
             sys.exit(1)
 
 
@@ -308,6 +330,7 @@ def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -
 # Import all commands
 from ab_cli.cli.configure import configure  # noqa: E402
 from ab_cli.cli.invoke import invoke  # noqa: E402
+from ab_cli.cli.profiles import profiles  # noqa: E402
 from ab_cli.cli.resources import resources  # noqa: E402
 from ab_cli.cli.ui import ui  # noqa: E402
 
@@ -316,6 +339,7 @@ main.add_command(configure)
 main.add_command(agents)
 main.add_command(versions)
 main.add_command(invoke)
+main.add_command(profiles)
 main.add_command(resources)
 main.add_command(ui)
 

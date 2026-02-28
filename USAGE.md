@@ -1109,7 +1109,49 @@ ab --config custom-config.yaml agents list
 # Enable verbose output
 ab --verbose agents list
 
+# Use a specific profile
+ab --profile staging agents list
+
 # Show help
 ab --help
 ab agents --help
 ab agents create --help
+```
+
+### Important: Option Placement
+
+**Global options like `--config` and `--profile` must be specified BEFORE the command/subcommand name.**
+
+This is standard Click CLI behavior. Options are "scoped" to the level where they're defined:
+
+**✓ Correct Usage:**
+```bash
+# Level 0 (main CLI) - RECOMMENDED
+ab --config custom.yaml agents list
+ab --profile staging agents list
+ab --verbose agents list
+
+# Level 1 (command group)
+ab agents --profile dev list
+```
+
+**✗ Incorrect Usage:**
+```bash
+# These will NOT work - options after subcommands are not recognized
+ab agents list --profile dev      # Error: No such option: --profile
+ab agents list --config custom.yaml  # Error: No such option: --config
+```
+
+**Why This Matters:**
+- The `--config` and `--profile` options are defined at the main CLI level (level 0)
+- They can also be used at the command group level (level 1) for some commands
+- They CANNOT be used after subcommand names (level 2)
+
+**Best Practice:**
+Always specify global options (`--config`, `--profile`, `--verbose`) immediately after `ab` for the cleanest and most consistent syntax:
+
+```bash
+ab --profile staging --config custom.yaml agents list
+ab --profile prod --verbose invoke chat <agent-id> -m "Hello"
+ab --profile dev resources models
+```

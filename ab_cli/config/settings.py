@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -196,6 +196,15 @@ class ABSettings(BaseSettings):
         Field(
             default=None,
             description="UI configuration settings",
+        ),
+    ] = None
+
+    # Profiles
+    profiles: Annotated[
+        dict[str, dict[str, Any]] | None,
+        Field(
+            default=None,
+            description="Named configuration profiles for different environments",
         ),
     ] = None
 

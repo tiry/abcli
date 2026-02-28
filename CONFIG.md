@@ -10,6 +10,97 @@ The Agent Builder CLI can be configured in three ways:
 2. **Environment Variables**: Prefixed with `AB_` (e.g., `AB_CLIENT_SECRET`)
 3. **.env File**: A .env file containing environment variables
 
+## Configuration Profiles
+
+Profiles allow you to maintain multiple environment configurations (dev, staging, prod) in a single configuration file. You can switch between profiles using the `--profile` flag.
+
+### Defining Profiles
+
+Add a `profiles` section to your configuration file:
+
+```yaml
+# Base configuration (default)
+client_id: "default-client-id"
+client_secret: "default-secret"
+api_endpoint: "https://api.agentbuilder.experience.hyland.com/"
+timeout: 30.0
+
+# Environment-specific profiles
+profiles:
+  dev:
+    client_id: "dev-client-id"
+    client_secret: "dev-secret"
+    api_endpoint: "https://api.agentbuilder.dev.experience.hyland.com/"
+    timeout: 60.0
+  
+  staging:
+    client_id: "staging-client-id"
+    client_secret: "staging-secret"
+    api_endpoint: "https://api.agentbuilder.staging.experience.hyland.com/"
+    max_retries: 5
+  
+  prod:
+    client_id: "prod-client-id"
+    client_secret: "prod-secret"
+    api_endpoint: "https://api.agentbuilder.experience.hyland.com/"
+    timeout: 45.0
+    default_output_format: "json"
+```
+
+### Using Profiles
+
+```bash
+# Use dev profile
+ab --profile dev agents list
+
+# Use prod profile  
+ab --profile prod invoke my-agent "Hello"
+
+# Without profile, uses base configuration
+ab agents list
+```
+
+### Managing Profiles
+
+```bash
+# List all available profiles
+ab profiles list
+
+# Show configuration for a specific profile
+ab profiles show dev
+
+# Show default (base) configuration
+ab profiles show
+```
+
+### Profile Configuration Rules
+
+1. **Deep Merging**: Profile settings are deeply merged with the base configuration
+2. **Override Behavior**: Profile values override base configuration values
+3. **Nested Support**: Nested settings (like `ui.data_provider`) are properly merged
+4. **Profiles are Optional**: You can omit the profiles section entirely
+
+**Example of Nested Merging:**
+
+```yaml
+# Base configuration
+timeout: 30.0
+ui:
+  data_provider: "cli"
+  theme: "dark"
+
+profiles:
+  dev:
+    timeout: 60.0
+    ui:
+      data_provider: "direct"  # Overrides only this nested value
+```
+
+Result when using `--profile dev`:
+- `timeout`: 60.0 (overridden)
+- `ui.data_provider`: "direct" (overridden)
+- `ui.theme`: "dark" (inherited from base)
+
 ## Required Parameters
 
 | Parameter | Environment Variable | Description | 

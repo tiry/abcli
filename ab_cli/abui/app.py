@@ -212,7 +212,7 @@ if st.session_state.api_client:
         # Try to ping the API
         health = st.session_state.api_client.health_check()
         st.sidebar.success("✅ Connected to AB API")
-        
+
         # Display data provider mode
         ui_config = (
             st.session_state.config.ui
@@ -220,15 +220,15 @@ if st.session_state.api_client:
             else None
         )
         data_provider = os.environ["AB_UI_DATA_PROVIDER"]
-        
+
         # Show provider mode with appropriate icon/color
         provider_display = {
             "mock": "🎭 Mock Data",
-            "cli": "⚙️ CLI Provider", 
-            "direct": "🚀 Direct API"
+            "cli": "⚙️ CLI Provider",
+            "direct": "🚀 Direct API",
         }
         st.sidebar.info(f"{provider_display.get(data_provider, f'📦 {data_provider}')}")
-        
+
     except Exception as e:
         st.sidebar.error(f"❌ API Error: {str(e)}")
 else:

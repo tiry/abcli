@@ -62,3 +62,29 @@ ui:
   # Only used when data_provider is "mock"
   # Default: ab_cli/abui/data
   mock_data_dir: ""
+
+# Configuration Profiles (optional)
+# Profiles allow multiple environment configurations in a single file
+# Use with: ab --profile dev agents list
+# Manage with: ab profiles list | ab profiles show dev
+#
+# profiles:
+#   dev:
+#     client_id: "dev-client-id"
+#     client_secret: "dev-secret"
+#     api_endpoint: "https://api.agentbuilder.dev.experience.hyland.com/"
+#     auth_endpoint: "https://auth.iam.dev.experience.hyland.com/idp/connect/token"
+#     timeout: 60.0
+#   
+#   staging:
+#     client_id: "staging-client-id"
+#     client_secret: "staging-secret"
+#     api_endpoint: "https://api.agentbuilder.staging.experience.hyland.com/"
+#     max_retries: 5
+#   
+#   prod:
+#     client_id: "prod-client-id"
+#     client_secret: "prod-secret"
+#     api_endpoint: "https://api.agentbuilder.experience.hyland.com/"
+#     timeout: 45.0
+#     default_output_format: "json"

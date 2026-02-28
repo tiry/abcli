@@ -1,0 +1,21 @@
+# Test configuration file with nested config overrides
+client_id: "default-client-id"
+client_secret: "default-client-secret"
+api_endpoint: "https://api.default.example.com/"
+timeout: 30.0
+
+pagination:
+  max_filter_pages: 10
+
+ui:
+  data_provider: "cli"
+  mock_data_dir: "/default/path"
+
+profiles:
+  test:
+    # Override nested UI config
+    ui:
+      data_provider: "direct"
+      mock_data_dir: "/test/path"
+    # Override top-level timeout
+    timeout: 90.0

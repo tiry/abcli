@@ -11,6 +11,8 @@ import click
 import streamlit.web.cli as stcli
 from rich.console import Console
 
+from ab_cli.cli.common_options import profile_option
+
 # Rich console for formatted output
 console = Console()
 error_console = Console(stderr=True)
@@ -21,17 +23,23 @@ error_console = Console(stderr=True)
 @click.option(
     "--config-path", type=click.Path(exists=True, path_type=Path), help="Path to configuration file"
 )
+@profile_option
 @click.option("--no-browser", is_flag=True, help="Don't open browser automatically")
 @click.option("--verbose", is_flag=True, help="Enable verbose output for CLI commands")
-@click.option("--mock", is_flag=True, help="Use mock data provider instead of CLI provider")
+@click.option("--mock", is_flag=True, help="Use mock data provider (for testing/demo)")
+@click.option("--direct", is_flag=True, help="Use direct API data provider (recommended)")
+@click.option("--cli", is_flag=True, help="Use CLI subprocess data provider (legacy)")
 @click.pass_context
 def ui(
     ctx: click.Context,
     port: int,
     config_path: Path | None,
+    profile: str | None,
     no_browser: bool,
     verbose: bool,
     mock: bool,
+    direct: bool,
+    cli: bool,
 ) -> int:
     """Launch the Agent Builder UI in a web browser.
 
@@ -45,34 +53,61 @@ def ui(
     - Chat with agents
     - View configuration details
 
-    The UI requires the 'abui' package to be installed. If not installed,
-    you will be prompted to install it.
+    \b
+    Data Provider Backends:
+    By default, the UI uses the CLI subprocess provider. You can choose different backends:
+    - --direct: Direct API calls (fastest, recommended for production)
+    - --cli: CLI subprocess calls (legacy, default if no flag specified)
+    - --mock: Mock data for testing/demo (no real API calls)
 
     \b
     Examples:
-        # Launch UI on default port
-        ab ui
+        # Launch UI with direct API provider (recommended)
+        ab ui --direct
 
-        # Launch UI on a specific port
-        ab ui --port 9000
+        # Launch UI on a specific port with mock data
+        ab ui --port 9000 --mock
 
         # Launch UI with a specific configuration file
-        ab ui --config-path /path/to/config.yaml
+        ab ui --config-path /path/to/config.yaml --direct
 
         # Launch UI without opening a browser
-        ab ui --no-browser
+        ab ui --no-browser --direct
     """
     # Get configuration from context if not specified
     if not config_path and "config_path" in ctx.obj:
         config_path = ctx.obj["config_path"]
 
+    # Validate mutually exclusive flags
+    provider_flags = sum([mock, direct, cli])
+    if provider_flags > 1:
+        error_console.print(
+            "[red]Error: Only one of --mock, --direct, or --cli can be specified[/red]"
+        )
+        return 1
+
+    # Determine data provider backend
+    if mock:
+        provider_type = "mock"
+    elif direct:
+        provider_type = "direct"
+    elif cli:
+        provider_type = "cli"
+    else:
+        # Default to CLI provider for backward compatibility
+        provider_type = "cli"
+
     # Use the abui module from ab_cli package
     try:
-        # If mock is set, set the environment variable
-        if mock:
-            os.environ["AB_UI_DATA_PROVIDER"] = "mock"
-            if verbose:
-                print("Mock mode enabled: Using mock data provider")
+        # Set the environment variable for the data provider
+        os.environ["AB_UI_DATA_PROVIDER"] = provider_type
+        if verbose:
+            provider_names = {
+                "mock": "Mock data provider (testing/demo)",
+                "direct": "Direct API provider (recommended)",
+                "cli": "CLI subprocess provider (legacy)",
+            }
+            print(f"Data provider: {provider_names[provider_type]}")
 
         # The app.py is directly in the abui module
         app_path = os.path.join(os.path.dirname(__file__), "..", "abui", "app.py")
@@ -88,7 +123,7 @@ def ui(
         if no_browser:
             cmd.append("--server.headless")
 
-        has_cli_options = config_path or verbose or mock
+        has_cli_options = config_path or verbose or provider_type != "cli"
 
         if has_cli_options:
             cmd.append("--")
@@ -96,12 +131,15 @@ def ui(
         if config_path:
             cmd.extend(["--config", str(config_path)])
 
+        if profile:
+            cmd.extend(["--profile", profile])
+
         if verbose:
             cmd.extend(["--verbose"])
 
-        if mock:
-            # Also pass mock flag to the app
-            cmd.extend(["--mock", "true"])
+        # Pass provider type to the app
+        if provider_type != "cli":
+            cmd.extend(["--provider", provider_type])
 
         console.print(f"[cyan]Launching Agent Builder UI on port {port}...[/cyan]")
 
