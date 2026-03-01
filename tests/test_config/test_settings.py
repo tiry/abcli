@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from ab_cli.config.settings import ABSettings, _redact, get_config_summary
+from ab_cli.config.settings import ABSettings, _redact, get_config_summary, get_profile_summary
 
 
 class TestABSettings:
@@ -167,3 +167,79 @@ class TestConfigSummary:
         assert result.startswith("this")
         assert result.endswith("alue")
         assert "..." in result
+
+
+class TestProfileSummary:
+    """Tests for profile summary functions."""
+
+    def test_get_profile_summary_no_profile(self) -> None:
+        """Test profile summary with no active profile."""
+        config_data = {
+            "client_id": "test",
+            "profiles": {
+                "dev": {"api_endpoint": "https://dev.example.com"},
+                "prod": {"api_endpoint": "https://prod.example.com"},
+            },
+        }
+
+        summary = get_profile_summary(config_data, None)
+
+        assert summary["Active Profile"] == "none (using base configuration)"
+        assert "dev" in summary["Available Profiles"]
+        assert "prod" in summary["Available Profiles"]
+
+    def test_get_profile_summary_with_profile(self) -> None:
+        """Test profile summary with active profile."""
+        config_data = {
+            "client_id": "test",
+            "profiles": {
+                "dev": {"api_endpoint": "https://dev.example.com"},
+                "staging": {"api_endpoint": "https://staging.example.com"},
+            },
+        }
+
+        summary = get_profile_summary(config_data, "dev")
+
+        assert summary["Active Profile"] == "dev"
+        assert "dev" in summary["Available Profiles"]
+        assert "staging" in summary["Available Profiles"]
+
+    def test_get_profile_summary_no_profiles_in_config(self) -> None:
+        """Test profile summary when no profiles are defined."""
+        config_data = {
+            "client_id": "test",
+            "client_secret": "secret",
+        }
+
+        summary = get_profile_summary(config_data, None)
+
+        assert summary["Active Profile"] == "none (using base configuration)"
+        assert summary["Available Profiles"] == "none"
+
+    def test_get_profile_summary_empty_profiles_section(self) -> None:
+        """Test profile summary with empty profiles section."""
+        config_data = {
+            "client_id": "test",
+            "profiles": {},
+        }
+
+        summary = get_profile_summary(config_data, None)
+
+        assert summary["Active Profile"] == "none (using base configuration)"
+        assert summary["Available Profiles"] == "none"
+
+    def test_get_profile_summary_profiles_sorted(self) -> None:
+        """Test that available profiles are listed in sorted order."""
+        config_data = {
+            "client_id": "test",
+            "profiles": {
+                "zebra": {},
+                "apple": {},
+                "middle": {},
+            },
+        }
+
+        summary = get_profile_summary(config_data, None)
+
+        # Should be alphabetically sorted
+        assert summary["Available Profiles"] == "apple, middle, zebra"

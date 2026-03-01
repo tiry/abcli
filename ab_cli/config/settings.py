@@ -292,6 +292,38 @@ def get_config_summary(settings: ABSettings) -> dict[str, str]:
     }
 
 
+def get_profile_summary(
+    config_data: dict[str, Any],
+    active_profile: str | None,
+) -> dict[str, str]:
+    """Get profile information summary.
+
+    Args:
+        config_data: Raw config dict from YAML file.
+        active_profile: Name of active profile (None if base config).
+
+    Returns:
+        Dictionary of profile information for display.
+    """
+    summary = {}
+
+    # Active profile
+    if active_profile:
+        summary["Active Profile"] = active_profile
+    else:
+        summary["Active Profile"] = "none (using base configuration)"
+
+    # Available profiles
+    profiles = config_data.get("profiles", {})
+    if profiles:
+        profile_names = ", ".join(sorted(profiles.keys()))
+        summary["Available Profiles"] = profile_names
+    else:
+        summary["Available Profiles"] = "none"
+
+    return summary
+
+
 def _redact(value: str, visible_chars: int = 8) -> str:
     """Redact a sensitive value, showing only first and last few characters.
 

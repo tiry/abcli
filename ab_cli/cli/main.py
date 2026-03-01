@@ -19,6 +19,7 @@ from ab_cli.config import (
     ConfigurationError,
     find_config_file,
     get_config_summary,
+    get_profile_summary,
     load_config,
     validate_config_file,
 )
@@ -312,8 +313,10 @@ def check(ctx: click.Context, config_override: str | None, auth_only: bool) -> N
 @click.option("--show-config", is_flag=True, help="Show loaded configuration values")
 @click.argument("config_file", type=click.Path(exists=True, path_type=Path), required=False)
 @click.pass_context
-def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -> None:
+def validate(ctx: click.Context, show_config: bool, config_file: Path | None) -> None:
     """Validate configuration file."""
+    import yaml
+
     path = config_file or find_config_file()
 
     if not path:
@@ -333,9 +336,23 @@ def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -
                 console.print(f"  ⚠️  {warning}")
 
         if show_config:
-            console.print("\n[cyan]Configuration values:[/cyan]")
-            summary = get_config_summary(settings)
-            for key, value in summary.items():
+            # Get active profile from context
+            active_profile = ctx.obj.get("profile") if ctx.obj else None
+
+            # Load raw config data to get available profiles
+            with open(path) as f:
+                config_data = yaml.safe_load(f) or {}
+
+            # Display profile information
+            console.print("\n[bold]Profile Information:[/bold]")
+            profile_info = get_profile_summary(config_data, active_profile)
+            for key, value in profile_info.items():
+                console.print(f"  {key}: [dim]{value}[/dim]")
+
+            # Display configuration values
+            console.print("\n[bold]Configuration Values:[/bold]")
+            config_summary = get_config_summary(settings)
+            for key, value in config_summary.items():
                 console.print(f"  {key}: [dim]{value}[/dim]")
 
     except ConfigurationError as e:

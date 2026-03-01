@@ -11,12 +11,13 @@ from ab_cli.config.loader import (
     load_config,
     validate_config_file,
 )
-from ab_cli.config.settings import ABSettings, get_config_summary
+from ab_cli.config.settings import ABSettings, get_config_summary, get_profile_summary
 
 __all__ = [
     # Settings
     "ABSettings",
     "get_config_summary",
+    "get_profile_summary",
     # Loader functions
     "load_config",
     "validate_config_file",
