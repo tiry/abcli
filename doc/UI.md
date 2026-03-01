@@ -89,7 +89,7 @@ Both interfaces display agent details and tools in expandable sections, making i
 
 **Chat / Invoke**
 
-<img src="doc/pics/ui-chat.png" width="800px"/>
+<img src="pics/ui-chat.png" width="800px"/>
 
 
 ## Navigation

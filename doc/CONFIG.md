@@ -87,7 +87,6 @@ ab profiles show
 timeout: 30.0
 ui:
   data_provider: "cli"
-  theme: "dark"
 
 profiles:
   dev:
@@ -99,7 +98,6 @@ profiles:
 Result when using `--profile dev`:
 - `timeout`: 60.0 (overridden)
 - `ui.data_provider`: "direct" (overridden)
-- `ui.theme`: "dark" (inherited from base)
 
 ## Required Parameters
 
@@ -139,7 +137,7 @@ auth_endpoint: "https://auth.iam.dev.experience.hyland.com/idp/connect/token"
 
 | Parameter | Environment Variable | Default | Description |
 |-----------|---------------------|---------|-------------|
-| `auth_scope` | `AB_AUTH_SCOPE` | `["hxp"]` | OAuth2 scopes to request |
+| `auth_scope` | `AB_AUTH_SCOPE` | `["hxp environment_authorization"]` | OAuth2 scopes to request |
 | `grant_type` | `AB_GRANT_TYPE` | `client_credentials` | OAuth2 grant type |
 
 ### Grant Type Options

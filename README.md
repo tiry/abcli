@@ -85,7 +85,13 @@ ab --profile prod agents list
 # Compare configurations across environments
 ab --profile dev agents get <agent-id>
 ab --profile prod agents get <agent-id>
+
+# list available models in the dev environent
+ab --profile dev resources models
+
 ```
+
+See [configuration-profiles](doc/CONFIG.md#configuration-profiles) for more details.
 
 ### Record and Analyze Datasets
 
@@ -101,6 +107,8 @@ ab invoke collect <agent-id> --chats messages.csv --out results.jsonl
 # Collect task agent responses
 ab invoke collect <agent-id> --tasks tasks.jsonl
 ```
+
+See [batch-collection is USAGE.md](doc/USAGE.md#batch-collection) for more details.
 
 ## Quick Start
 
