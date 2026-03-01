@@ -3,6 +3,7 @@
 import json
 import sys
 import traceback
+from datetime import datetime
 
 import click
 import yaml
@@ -25,6 +26,7 @@ from ab_cli.models.invocation import (
     InvokeTaskRequest,
 )
 from ab_cli.services.agent_service import AgentService
+from ab_cli.services.collection_service import CollectionService
 
 console = Console()
 error_console = Console(stderr=True)
@@ -630,3 +632,96 @@ def interactive(
         sys.exit(1)
     except KeyboardInterrupt:
         console.print("\n[dim]Session interrupted.[/dim]")
+
+
+@invoke.command("collect")
+@click.argument("agent_id")
+@click.argument("version_id", required=False, default="latest")
+@click.option(
+    "--tasks",
+    type=click.Path(exists=True),
+    help="JSONL file with task invocations",
+)
+@click.option(
+    "--chats",
+    type=click.Path(exists=True),
+    help="CSV file with chat messages",
+)
+@click.option(
+    "--out",
+    type=click.Path(),
+    help="Output JSONL file path (default: ./collections/{agent_id}_{timestamp}.jsonl)",
+)
+@click.pass_context
+def collect(
+    ctx: click.Context,
+    agent_id: str,
+    version_id: str,
+    tasks: str | None,
+    chats: str | None,
+    out: str | None,
+) -> None:
+    """Run batch invocations and collect results to JSONL file."""
+    config_path = ctx.obj.get("config_path") if ctx.obj else None
+    profile = ctx.obj.get("profile") if ctx.obj else None
+    settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+    # Validate input options
+    if tasks and chats:
+        error_console.print("[red]Error: Cannot specify both --tasks and --chats[/red]")
+        error_console.print("Please provide only one input type per batch.")
+        sys.exit(1)
+
+    if not tasks and not chats:
+        error_console.print("[red]Error: Must specify either --tasks or --chats[/red]")
+        error_console.print("Use --tasks for JSONL task files or --chats for CSV message files.")
+        sys.exit(1)
+
+    # Determine output path
+    if not out:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out = f"./collections/{agent_id}_{timestamp}.jsonl"
+
+    try:
+        with get_client(config_path, profile, settings_from_ctx) as client:
+            collection_service = CollectionService(client)
+
+            console.print(f"[dim]Starting batch collection for agent {agent_id}...[/dim]")
+            console.print(f"[dim]Output will be saved to: {out}[/dim]\n")
+
+            if tasks:
+                total, failed = collection_service.process_task_batch(
+                    agent_id=agent_id,
+                    version_id=version_id,
+                    jsonl_path=tasks,
+                    output_path=out,
+                )
+            else:  # chats
+                total, failed = collection_service.process_chat_batch(
+                    agent_id=agent_id,
+                    version_id=version_id,
+                    csv_path=chats,  # type: ignore
+                    output_path=out,
+                )
+
+            # Display summary
+            console.print()
+            console.print("[green]✓ Collection complete![/green]")
+            console.print(f"  - Total: {total}")
+            console.print(f"  - Successful: {total - failed}")
+            if failed > 0:
+                console.print(f"  - Failed (after retry): {failed}")
+            console.print(f"  - Output: {out}")
+
+    except FileNotFoundError as e:
+        error_console.print(f"[red]File error:[/red] {e}")
+        sys.exit(1)
+    except NotFoundError:
+        error_console.print(f"[red]Agent not found:[/red] {agent_id}")
+        sys.exit(1)
+    except APIError as e:
+        error_console.print(f"[red]API Error:[/red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        error_console.print(f"[red]Unexpected error:[/red] {e}")
+        sys.exit(1)

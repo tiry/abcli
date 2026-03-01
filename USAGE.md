@@ -25,6 +25,7 @@ This document provides comprehensive documentation of all commands available in 
   - [Chat Invocation](#chat-invocation)
   - [Task Invocation](#task-invocation)
   - [Interactive Mode](#interactive-mode)
+  - [Batch Collection](#batch-collection)
 - [Resource Management](#resource-management)
   - [List LLM Models](#list-llm-models)
   - [List Guardrails](#list-guardrails)
@@ -822,6 +823,107 @@ Type 'exit', 'quit', or Ctrl+C to end the session.
 > exit
 Ending chat session.
 ```
+
+### Batch Collection
+
+The `collect` command allows you to run batch invocations and collect results to JSONL files for analysis, testing, or dataset creation.
+
+```bash
+# Collect chat responses from CSV file
+ab invoke collect <agent-id> --chats messages.csv
+
+# Collect task responses from JSONL file
+ab invoke collect <agent-id> --tasks tasks.jsonl
+
+# Specify custom output location
+ab invoke collect <agent-id> --chats messages.csv --out results/my_collection.jsonl
+
+# Use specific version
+ab invoke collect <agent-id> <version-id> --chats messages.csv
+```
+
+**Command Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `agent_id` | ID of the agent to invoke |
+| `version_id` | Version ID (optional, defaults to "latest") |
+| `--chats` | Path to CSV file containing chat messages |
+| `--tasks` | Path to JSONL file containing task inputs |
+| `--out` | Output JSONL file path (default: `./collections/{agent_id}_{timestamp}.jsonl`) |
+
+**Input File Formats:**
+
+**CSV Format for Chats:**
+- Single column: Just the message text (auto-generates IDs)
+- Two columns: `message_id,message` (with or without header)
+- Header detection: Automatically detects and skips header rows
+
+```csv
+message_id,message
+msg_001,What is the weather today?
+msg_002,Tell me a joke
+msg_003,Explain quantum physics
+```
+
+Or simplified single-column format:
+
+```csv
+What is the weather today?
+Tell me a joke
+Explain quantum physics
+```
+
+**JSONL Format for Tasks:**
+- Each line is a JSON object with task inputs
+- Must match the agent's input schema
+
+```jsonl
+{"claim_id": "CLM001", "policy_number": "POL123", "amount": 1500}
+{"claim_id": "CLM002", "policy_number": "POL456", "amount": 2300}
+{"claim_id": "CLM003", "policy_number": "POL789", "amount": 890}
+```
+
+**Output Format:**
+
+Results are written to JSONL format with comprehensive metrics:
+
+```jsonl
+{"timestamp": "2026-02-28T22:30:15.123Z", "invocation_index": 0, "message_id": "msg_001", "agent": {"agent_id": "abc123", "version_id": "latest"}, "input": {"message": "What is 5 * 7?"}, "output": {"response": "35", "usage": {"total_tokens": 45}}, "metrics": {"success": true, "status_code": 200, "execution_time_ms": 1234, "retry_count": 0, "error_message": null}}
+{"timestamp": "2026-02-28T22:30:16.456Z", "invocation_index": 1, "message_id": "msg_002", "agent": {"agent_id": "abc123", "version_id": "latest"}, "input": {"message": "Tell me a joke"}, "output": {"response": "Why did the...", "usage": {"total_tokens": 78}}, "metrics": {"success": true, "status_code": 200, "execution_time_ms": 2100, "retry_count": 0, "error_message": null}}
+```
+
+**Key Features:**
+
+- **Real-time Progress**: Shows progress to stderr while streaming results to file
+- **Automatic Retry**: Retries failed invocations once with 1.5s delay
+- **Error Handling**: Aborts batch on double-failure, preserving partial results
+- **Streaming Output**: Results written immediately (can `tail -f` the output file)
+- **Rich Metrics**: Captures execution time, retry count, token usage, and more
+
+**Example Output:**
+
+```
+Processing invocation 1/100...
+Processing invocation 2/100...
+Processing invocation 3/100...
+...
+Processing invocation 100/100...
+
+✓ Collection complete!
+  - Total: 100
+  - Successful: 98
+  - Failed (after retry): 2
+  - Output: ./collections/agent-abc123_20260228_223015.jsonl
+```
+
+**Use Cases:**
+
+- **Testing**: Validate agent behavior across multiple test cases
+- **Benchmarking**: Measure agent performance and response times
+- **Dataset Creation**: Build evaluation datasets for agent quality assessment
+- **Regression Testing**: Compare agent outputs across versions
+- **Load Testing**: Test agent behavior under batch processing scenarios
 
 ## Resource Management
 
