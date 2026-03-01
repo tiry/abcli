@@ -45,7 +45,7 @@ The Agents page allows you to:
 
 **Listing Agents**
 
-<img src="doc/pics/ui-list.png" width="800px"/>
+<img src="pics/ui-list.png" width="800px"/>
 
 
 ### Agent Details
@@ -63,7 +63,7 @@ Action buttons at the top of the page allow you to quickly:
 
 **Edit Agent**
 
-<img src="doc/pics/ui-edit.png" width="800px"/>
+<img src="pics/ui-edit.png" width="800px"/>
 
 
 ### Chat Interface
