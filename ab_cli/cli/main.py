@@ -347,6 +347,7 @@ def validate(_ctx: click.Context, show_config: bool, config_file: Path | None) -
 
 
 # Import all commands
+from ab_cli.cli.auth import auth  # noqa: E402
 from ab_cli.cli.configure import configure  # noqa: E402
 from ab_cli.cli.invoke import invoke  # noqa: E402
 from ab_cli.cli.profiles import profiles  # noqa: E402
@@ -354,6 +355,7 @@ from ab_cli.cli.resources import resources  # noqa: E402
 from ab_cli.cli.ui import ui  # noqa: E402
 
 # Register all commands
+main.add_command(auth)
 main.add_command(configure)
 main.add_command(agents)
 main.add_command(versions)

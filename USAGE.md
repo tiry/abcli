@@ -212,6 +212,60 @@ Next Steps:
 Test the configuration now? [Y/n]: 
 ```
 
+### Get Authentication Token
+
+Retrieve an OAuth2 token and get ready-to-use curl or wget examples:
+
+```bash
+# Default: curl GET example (list agents)
+ab auth
+
+# wget GET example
+ab auth --wget
+
+# curl POST example (invoke agent)
+ab auth --post
+
+# wget POST example
+ab auth --wget --post
+
+# With profile
+ab --profile staging auth
+```
+
+**Command Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `--curl` | Generate curl example (default) |
+| `--wget` | Generate wget example |
+| `--get` | Show GET example - list agents (default) |
+| `--post` | Show POST example - invoke agent |
+
+**Example Output:**
+
+```
+✓ Authentication successful!
+
+Access Token:
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkw...
+
+Token Details:
+  Expires in: 3600 seconds (1 hour)
+  Expires at: 2026-02-29 00:15:42 UTC
+
+Example curl command (GET - List Agents):
+curl -X GET \
+  "https://api.agentbuilder.example.com/v1/environments/your-env-id/agents?limit=50&offset=0" \
+  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+This command is useful for:
+- Testing authentication independently
+- Getting tokens for scripts or external tools
+- Debugging API integration issues
+- Generating example API calls with proper authentication
+
 ### Testing Connectivity
 
 ```bash
