@@ -1,3 +1,5 @@
 """Utility functions for ab-cli."""
 
-__all__: list[str] = []
+from ab_cli.utils.version import increment_version
+
+__all__ = ["increment_version"]

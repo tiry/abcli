@@ -1,7 +1,6 @@
 """Edit Agent page for the Agent Builder UI."""
 
 import json
-import re
 from typing import Any
 
 import streamlit as st
@@ -12,34 +11,8 @@ from ab_cli.abui.views.agents import clear_cache, get_guardrails, get_models
 # Import Pydantic models
 from ab_cli.models.agent import AgentCreate, AgentUpdate
 
-
-def increment_version(version: str) -> str:
-    """Increment the last numeric component of a version string.
-
-    Examples:
-        "v1.0" -> "v1.1"
-        "v2.5" -> "v2.6"
-        "v1.0.3" -> "v1.0.4"
-        "1.2.3" -> "1.2.4"
-        "release-5" -> "release-6"
-
-    Args:
-        version: Version string to increment
-
-    Returns:
-        Incremented version string
-    """
-    # Find the last number in the string
-    match = re.search(r"(\d+)(?!.*\d)", version)
-    if match:
-        # Get the number and its position
-        num = int(match.group(1))
-        start, end = match.span()
-        # Increment and replace
-        return version[:start] + str(num + 1) + version[end:]
-    else:
-        # No number found, append ".1"
-        return version + ".1"
+# Import version utility
+from ab_cli.utils.version import increment_version
 
 
 def show_edit_agent_page() -> None:

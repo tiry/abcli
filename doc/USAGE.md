@@ -628,6 +628,173 @@ Are you sure you want to delete agent 8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b? [y/N
 ✓ Agent deleted: 8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b
 ```
 
+### Edit Agent
+
+The `edit` command provides an interactive way to edit agent configurations using your preferred text editor. This is ideal for making complex changes to agent configurations without manually managing JSON files.
+
+```bash
+# Edit an agent interactively
+ab agents edit <agent-id>
+
+# Use a specific editor
+ab agents edit <agent-id> --editor vim
+ab agents edit <agent-id> --editor "code --wait"
+
+# Add notes to the new version
+ab agents edit <agent-id> --notes "Updated system prompt"
+
+# Keep temp file for debugging
+ab agents edit <agent-id> --keep-temp
+```
+
+**Command Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `agent_id` | ID of the agent to edit |
+| `--editor` | Override editor selection (e.g., 'vim', 'code --wait') |
+| `--notes` | Version notes for the update |
+| `--keep-temp` | Keep temporary file after completion for debugging |
+
+**How It Works:**
+
+1. **Fetches** the current agent configuration from the API
+2. **Creates** a temporary JSON file with the current config and auto-incremented version
+3. **Opens** your text editor with the configuration
+4. **Validates** the edited JSON after you save and close
+5. **Confirms** changes with a summary
+6. **Creates** a new agent version via the API
+7. **Cleans up** the temporary file (unless `--keep-temp` is used)
+
+**Editor Selection Priority:**
+
+The command determines which editor to use in the following order:
+1. `--editor` command-line flag
+2. `editor` setting in config.yaml
+3. `$VISUAL` environment variable
+4. `$EDITOR` environment variable
+5. Platform default (`vi` on Unix/macOS, `notepad.exe` on Windows)
+
+**Example Configuration in config.yaml:**
+
+```yaml
+# Agent Builder API Configuration
+api_endpoint: https://api.example.com/
+# ... other settings ...
+
+# Editor configuration
+editor: code --wait  # VS Code with wait flag
+# OR
+# editor: vim
+# editor: nano
+# editor: emacs
+```
+
+**Example Interactive Session:**
+
+```
+$ ab agents edit 8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b
+
+Fetching agent 8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b...
+✓ Loaded: Calculator
+  Current version: v1.0
+
+Temp file: /var/folders/tmp/ab-agent-edit-8f6c2178-20260302_170123.json
+Suggested new version: v1.1
+(You can change the versionLabel in the editor)
+
+Opening editor: code --wait
+Edit the configuration, then save and close the editor...
+
+Reading changes...
+✓ Changes validated
+
+Summary of changes:
+  Agent: Calculator (8f6c2178-4f0a-43fb-88d7-f3d84c5e2e3b)
+  New version label: v1.1
+  Config keys: llmModelId, systemPrompt, tools, inferenceConfig
+  Notes: Updated via interactive editor
+
+Create new version with these changes? [y/N]: y
+
+Creating new agent version...
+✓ Agent updated successfully!
+  New version: 2
+  Version label: v1.1
+```
+
+**Temporary File Format:**
+
+The temporary JSON file created for editing has the following structure:
+
+```json
+{
+  "versionLabel": "v1.1",
+  "config": {
+    "llmModelId": "anthropic.claude-3-haiku-20240307-v1:0",
+    "systemPrompt": "You are a calculator assistant.",
+    "tools": [
+      {
+        "toolType": "function",
+        "name": "multiply",
+        "description": "Multiplies two numbers",
+        "funcName": "multiply",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "a": { "type": "number" },
+            "b": { "type": "number" }
+          },
+          "required": ["a", "b"]
+        }
+      }
+    ],
+    "inferenceConfig": {
+      "temperature": 0.0,
+      "maxRetries": 10,
+      "timeout": 3600,
+      "maxTokens": 4000
+    }
+  }
+}
+```
+
+**Key Points:**
+
+- The `versionLabel` can be changed in the editor
+- Version is auto-incremented from the current version as a suggestion
+- Changes are not saved until you confirm
+- Invalid JSON or missing required fields will be caught with clear error messages
+- The temp file is cleaned up automatically (unless `--keep-temp` is used)
+
+**Error Handling:**
+
+If the editor is not found:
+```
+Error: Editor 'vim' not found or not executable
+
+You can:
+  • Install the editor
+  • Use --editor flag to specify a different editor
+  • Set VISUAL or EDITOR environment variable
+  • Configure 'editor' in config.yaml
+```
+
+If the JSON is invalid after editing:
+```
+Invalid JSON: Expecting ',' delimiter: line 12 column 5 (char 456)
+
+The file contains invalid JSON. Please fix and try again.
+Temp file kept at: /var/folders/tmp/ab-agent-edit-8f6c2178-20260302_170123.json
+```
+
+**Tips:**
+
+- Use `--editor "code --wait"` for VS Code to ensure the CLI waits for you to finish editing
+- Use `--keep-temp` to preserve the temp file for debugging if something goes wrong
+- Add `--notes` to provide meaningful version notes for tracking changes
+- The editor opens with properly formatted JSON for easy reading and editing
+
 ### List Agent Types
 
 ```bash

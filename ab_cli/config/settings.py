@@ -120,6 +120,15 @@ class ABSettings(BaseSettings):
         ),
     ]
 
+    # Editor configuration
+    editor: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Text editor command for interactive editing (e.g., vim, nano, 'code --wait')",
+        ),
+    ] = None
+
     # Audit settings
     record_updates: Annotated[
         bool,

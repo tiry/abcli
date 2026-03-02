@@ -114,6 +114,10 @@ See [batch-collection is USAGE.md](doc/USAGE.md#batch-collection) for more detai
 
 ### Installation
 
+See [automated installation script)[https://github.com/tiry/abcli/blob/master/doc/INSTALL.md#option-1-automated-installation-recommended]
+
+Otherwise, this is a classic python install.
+
 ```bash
 # Clone the repository
 git clone <repository-url>

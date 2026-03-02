@@ -39,6 +39,15 @@ retry_backoff: 2.0  # Exponential backoff multiplier
 # Options: table, json, yaml
 default_output_format: "table"
 
+# Editor configuration (optional)
+# Text editor for interactive editing (e.g., 'ab agents edit' command)
+# Uses same fallback logic as git: $VISUAL, $EDITOR, then platform default
+# Examples:
+#   editor: vim
+#   editor: nano
+#   editor: code --wait
+# editor: "vim"
+
 # Audit settings (optional)
 # When enabled, API payloads for create/update operations will be saved
 # to the 'audit' folder next to the config file

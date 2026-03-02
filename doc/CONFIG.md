@@ -163,6 +163,64 @@ See the OpenID Configuration at `https://auth.iam.dev.experience.hyland.com/idp/
 |-----------|---------------------|---------|---------|-------------|
 | `default_output_format` | `AB_DEFAULT_OUTPUT_FORMAT` | `table` | `table`, `json`, `yaml` | Default output format for commands |
 
+## Editor Settings
+
+| Parameter | Environment Variable | Default | Description |
+|-----------|---------------------|---------|-------------|
+| `editor` | `AB_EDITOR` | `None` | Text editor command for interactive agent editing |
+
+The `editor` parameter specifies which text editor to use for the `ab agents edit` command. If not specified, the CLI follows this priority chain:
+
+1. `--editor` command-line flag
+2. `editor` setting in config.yaml
+3. `$VISUAL` environment variable
+4. `$EDITOR` environment variable
+5. Platform default (`vi` on Unix/macOS, `notepad.exe` on Windows)
+
+### Editor Examples
+
+```yaml
+# VS Code (wait for editor to close)
+editor: "code --wait"
+
+# Vim
+editor: "vim"
+
+# Nano
+editor: "nano"
+
+# Emacs
+editor: "emacs"
+
+# Sublime Text
+editor: "subl --wait"
+
+# Windows Notepad
+editor: "notepad.exe"
+```
+
+### Important Notes
+
+- **Wait Flag**: For GUI editors like VS Code or Sublime Text, use the `--wait` flag to ensure the CLI waits for you to finish editing
+- **Command with Arguments**: You can include command-line arguments in the editor string
+- **Path to Editor**: If the editor is not in your PATH, provide the full path: `editor: "/usr/local/bin/vim"`
+
+### Editor Profile Example
+
+You can set different editors for different profiles:
+
+```yaml
+# Base configuration
+editor: "vi"
+
+profiles:
+  dev:
+    editor: "code --wait"  # VS Code for development
+  
+  prod:
+    editor: "vim"  # Vim for production
+```
+
 ## Audit Settings
 
 | Parameter | Environment Variable | Default | Description |

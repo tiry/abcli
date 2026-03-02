@@ -20,7 +20,15 @@ from ab_cli.cli.pagination_utils import (
 )
 from ab_cli.config.loader import find_config_file, load_config, load_config_with_profile
 from ab_cli.config.settings import ABSettings
+from ab_cli.models.agent import AgentUpdate
 from ab_cli.services.agent_service import AgentService
+from ab_cli.utils.editor import get_editor, open_editor
+from ab_cli.utils.tempfile_manager import (
+    cleanup_tempfile,
+    create_agent_edit_tempfile,
+    read_agent_edit_tempfile,
+)
+from ab_cli.utils.version import increment_version
 
 console = Console()
 
@@ -620,6 +628,217 @@ def delete_agent(ctx: click.Context, agent_id: str, yes: bool) -> None:
     except APIError as e:
         console.print(f"[red]Error deleting agent:[/red] {e}")
         raise SystemExit(1)
+
+
+@agents.command("edit")
+@click.argument("agent_id")
+@click.option("--editor", help="Override editor selection (e.g., 'vim', 'code --wait')")
+@click.option("--keep-temp", is_flag=True, help="Keep temp file after completion for debugging")
+@click.option("--notes", help="Version notes for the update")
+@click.pass_context
+def edit_agent(
+    ctx: click.Context,
+    agent_id: str,
+    editor: str | None,
+    keep_temp: bool,
+    notes: str | None,
+) -> None:
+    """Edit an agent configuration interactively in your text editor.
+
+    This command:
+    1. Fetches the current agent configuration
+    2. Creates a temporary JSON file with the config
+    3. Opens your text editor
+    4. After you save and close, prompts for confirmation
+    5. Creates a new agent version with your changes
+    """
+    config_path = ctx.obj.get("config_path") if ctx.obj else None
+    profile = ctx.obj.get("profile") if ctx.obj else None
+    settings_from_ctx = ctx.obj.get("settings") if ctx.obj else None
+
+    # Load full settings to get editor configuration
+    settings = settings_from_ctx
+    if not settings:
+        try:
+            config_file = config_path or find_config_file()
+            if profile:
+                settings = load_config_with_profile(config_file, profile=profile)
+            else:
+                settings = load_config(config_file)
+        except Exception:
+            # Create minimal settings if config doesn't exist
+            settings = None
+
+    temp_file = None
+
+    try:
+        # Step 1: Fetch current agent configuration
+        console.print(f"[cyan]Fetching agent {agent_id}...[/cyan]")
+
+        with get_client(config_path, profile, settings_from_ctx) as client:
+            agent_service = AgentService(client)
+            result = agent_service.get_agent(agent_id)
+
+            if result is None:
+                console.print(f"[red]Agent not found:[/red] {agent_id}")
+                raise SystemExit(1)
+
+            agent = result.agent
+            current_version = result.version
+
+            console.print(f"[green]✓[/green] Loaded: {agent.name}")
+            console.print(
+                f"  Current version: {current_version.version_label or current_version.number}"
+            )
+
+            # Step 2: Create temp file with current config
+            # Auto-increment version for user convenience
+            suggested_version = increment_version(
+                current_version.version_label or f"v{current_version.number}"
+            )
+
+            temp_file = create_agent_edit_tempfile(
+                agent_id=str(agent.id),
+                version_label=suggested_version,
+                config=current_version.config,
+            )
+
+            console.print(f"\n[dim]Temp file: {temp_file}[/dim]")
+            console.print(f"[yellow]Suggested new version: {suggested_version}[/yellow]")
+            console.print("[dim](You can change the versionLabel in the editor)[/dim]\n")
+
+            # Step 3: Determine which editor to use
+            if settings:
+                editor_cmd = get_editor(settings, override=editor)
+            else:
+                # Fallback if no settings available
+                import os
+                import platform
+
+                if editor:
+                    editor_cmd = editor
+                elif os.environ.get("VISUAL"):
+                    editor_cmd = os.environ["VISUAL"]
+                elif os.environ.get("EDITOR"):
+                    editor_cmd = os.environ["EDITOR"]
+                elif platform.system() == "Windows":
+                    editor_cmd = "notepad.exe"
+                else:
+                    editor_cmd = "vi"
+
+            console.print(f"[cyan]Opening editor: {editor_cmd}[/cyan]")
+            console.print("[dim]Edit the configuration, then save and close the editor...[/dim]\n")
+
+            # Step 4: Open editor
+            try:
+                exit_code = open_editor(temp_file, editor_cmd)
+
+                if exit_code != 0:
+                    console.print(
+                        f"\n[yellow]Warning:[/yellow] Editor exited with code {exit_code}"
+                    )
+                    if not click.confirm("Continue anyway?"):
+                        console.print("Cancelled")
+                        cleanup_tempfile(temp_file, keep=keep_temp)
+                        raise SystemExit(0)
+
+            except FileNotFoundError as e:
+                console.print(f"\n[red]Error:[/red] {e}")
+                console.print("\nYou can:")
+                console.print("  • Install the editor")
+                console.print("  • Use --editor flag to specify a different editor")
+                console.print("  • Set VISUAL or EDITOR environment variable")
+                console.print("  • Configure 'editor' in config.yaml")
+                cleanup_tempfile(temp_file, keep=keep_temp)
+                raise SystemExit(1)
+
+            except Exception as e:
+                console.print(f"\n[red]Error launching editor:[/red] {e}")
+                cleanup_tempfile(temp_file, keep=keep_temp)
+                raise SystemExit(1)
+
+            # Step 5: Read and validate edited file
+            console.print("\n[cyan]Reading changes...[/cyan]")
+
+            try:
+                new_version_label, new_config = read_agent_edit_tempfile(temp_file)
+            except json.JSONDecodeError as e:
+                console.print(f"[red]Invalid JSON:[/red] {e}")
+                console.print("\nThe file contains invalid JSON. Please fix and try again.")
+                if keep_temp:
+                    console.print(f"Temp file kept at: {temp_file}")
+                else:
+                    cleanup_tempfile(temp_file)
+                raise SystemExit(1)
+            except (KeyError, ValueError) as e:
+                console.print(f"[red]Validation error:[/red] {e}")
+                if keep_temp:
+                    console.print(f"Temp file kept at: {temp_file}")
+                else:
+                    cleanup_tempfile(temp_file)
+                raise SystemExit(1)
+
+            # Step 6: Show summary and confirm
+            console.print("[green]✓[/green] Changes validated")
+            console.print("\n[bold]Summary of changes:[/bold]")
+            console.print(f"  Agent: {agent.name} ({agent_id})")
+            console.print(f"  New version label: {new_version_label}")
+            console.print(f"  Config keys: {', '.join(new_config.keys())}")
+
+            if notes:
+                console.print(f"  Notes: {notes}")
+
+            console.print()
+
+            if not click.confirm("Create new version with these changes?"):
+                console.print("Cancelled")
+                cleanup_tempfile(temp_file, keep=keep_temp)
+                raise SystemExit(0)
+
+            # Step 7: Create new version via API
+            console.print("\n[cyan]Creating new agent version...[/cyan]")
+
+            agent_update = AgentUpdate(
+                config=new_config,
+                version_label=new_version_label,
+                notes=notes or "Updated via interactive editor",
+            )
+
+            update_result = agent_service.update_agent(
+                str(agent.id), agent_update.model_dump(by_alias=True, exclude_none=True)
+            )
+
+            # Step 8: Success!
+            console.print("[green]✓ Agent updated successfully![/green]")
+
+            if hasattr(update_result, "version"):
+                console.print(f"  New version: {update_result.version.number}")
+                console.print(f"  Version label: {update_result.version.version_label}")
+            else:
+                console.print(f"  Version label: {new_version_label}")
+
+            # Cleanup
+            cleanup_tempfile(temp_file, keep=keep_temp)
+            if keep_temp:
+                console.print(f"\n[dim]Temp file kept at: {temp_file}[/dim]")
+
+    except NotFoundError:
+        console.print(f"[red]Agent not found:[/red] {agent_id}")
+        if temp_file:
+            cleanup_tempfile(temp_file, keep=keep_temp)
+        raise SystemExit(1)
+
+    except APIError as e:
+        console.print(f"[red]API Error:[/red] {e}")
+        if temp_file:
+            cleanup_tempfile(temp_file, keep=keep_temp)
+        raise SystemExit(1)
+
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]Cancelled by user[/yellow]")
+        if temp_file:
+            cleanup_tempfile(temp_file, keep=keep_temp)
+        raise SystemExit(0)
 
 
 @agents.command("types")
