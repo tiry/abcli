@@ -11,9 +11,57 @@ Before installing the Agent Builder CLI, you'll need:
 - Git (for cloning the repository)
 - Valid API credentials for the Agent Builder Platform
 
-## Installation Steps
+## Installation Methods
 
-### 1. Clone the Repository
+You can install the Agent Builder CLI from source using either:
+- **Automated Installation** (recommended for most users)
+- **Manual Installation** (for custom setups)
+
+### Option 1: Automated Installation (Recommended)
+
+The automated installation scripts handle the complete setup process including Python version checks, virtual environment creation, and dependency installation.
+
+#### On macOS/Linux:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ab-cli
+
+# Run the installation script
+./scripts/install.sh
+
+# To update an existing installation
+./scripts/install.sh --update
+```
+
+#### On Windows (PowerShell):
+
+```powershell
+# Clone the repository
+git clone <repository-url>
+cd ab-cli
+
+# Run the installation script
+.\scripts\install.ps1
+
+# To update an existing installation
+.\scripts\install.ps1 -Update
+```
+
+The automated installation will:
+- ✅ Check Python 3.10+ is installed
+- ✅ Create a virtual environment (`venv/`)
+- ✅ Install the package with development dependencies
+- ✅ Provide clear next-step instructions
+
+After installation completes, follow the on-screen instructions to activate the virtual environment and configure the CLI.
+
+### Option 2: Manual Installation
+
+For users who prefer manual control over the installation process:
+
+#### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
