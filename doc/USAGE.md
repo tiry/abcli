@@ -17,6 +17,7 @@ This document provides comprehensive documentation of all commands available in 
   - [Update Agent](#update-agent)
   - [Patch Agent](#patch-agent)
   - [Delete Agent](#delete-agent)
+  - [Edit Agent](#edit-agent)
   - [List Agent Types](#list-agent-types)
 - [Version Management](#version-management)
   - [List Versions](#list-versions)
