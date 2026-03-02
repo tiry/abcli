@@ -493,6 +493,231 @@ class TestDeleteAgent:
         mock_client.delete_agent.assert_not_called()
 
 
+class TestEditAgent:
+    """Tests for edit_agent command."""
+
+    def test_edit_agent_successful_flow(self, runner, mock_client, tmp_path):
+        """Test successful agent edit flow."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        # Create a temp file that will be "edited"
+        temp_file = tmp_path / "agent_edit.json"
+        edited_config = {
+            "versionLabel": "v1.1",
+            "config": {
+                "systemPrompt": "Updated system prompt",
+                "llmModelId": "claude-3-haiku"
+            }
+        }
+        temp_file.write_text(json.dumps(edited_config))
+
+        # Mock the functions involved in edit workflow
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", return_value=(
+                            "v1.1",
+                            {"systemPrompt": "Updated system prompt", "llmModelId": "claude-3-haiku"}
+                        )):
+                            with patch("click.confirm", return_value=True):
+                                result = runner.invoke(agents, [
+                                    "edit",
+                                    "00000000-0000-4000-a000-000000000001"
+                                ], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        assert "Agent updated successfully" in result.output
+        mock_client.update_agent.assert_called_once()
+
+    def test_edit_agent_not_found(self, runner, mock_client):
+        """Test editing a non-existent agent."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        from ab_cli.api.exceptions import NotFoundError
+        mock_client.get_agent.side_effect = NotFoundError("Agent not found", "nonexistent-agent")
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            result = runner.invoke(agents, [
+                "edit",
+                "nonexistent-agent"
+            ], obj=ctx_obj)
+
+        assert result.exit_code != 0
+        assert "Agent not found" in result.output
+
+    def test_edit_agent_editor_not_found(self, runner, mock_client):
+        """Test edit when editor cannot be determined."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value="/tmp/test.json"):
+                with patch("ab_cli.cli.agents.get_editor", side_effect=RuntimeError("No editor found")):
+                    result = runner.invoke(agents, [
+                        "edit",
+                        "00000000-0000-4000-a000-000000000001"
+                    ], obj=ctx_obj)
+
+        assert result.exit_code != 0
+        # Check that the exception was raised (result will contain the error)
+        assert result.exception is not None
+
+    def test_edit_agent_editor_failed(self, runner, mock_client, tmp_path):
+        """Test edit when editor returns non-zero exit code."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        temp_file.write_text("{}")
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=1):  # Non-zero exit
+                        with patch("click.confirm", return_value=False):  # User cancels
+                            result = runner.invoke(agents, [
+                                "edit",
+                                "00000000-0000-4000-a000-000000000001"
+                            ], obj=ctx_obj)
+
+        # Check for warning message about editor exit code and cancellation
+        assert "exited with code" in result.output or "Cancelled" in result.output
+
+    def test_edit_agent_invalid_json_after_edit(self, runner, mock_client, tmp_path):
+        """Test edit when user saves invalid JSON."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        temp_file.write_text("{invalid json}")
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", side_effect=ValueError("Invalid JSON")):
+                            result = runner.invoke(agents, [
+                                "edit",
+                                "00000000-0000-4000-a000-000000000001"
+                            ], obj=ctx_obj)
+
+        assert result.exit_code != 0
+        assert "Invalid JSON" in result.output
+
+    def test_edit_agent_user_cancels(self, runner, mock_client, tmp_path):
+        """Test edit when user cancels at confirmation."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        edited_config = {
+            "versionLabel": "v1.1",
+            "config": {"systemPrompt": "Updated"}
+        }
+        temp_file.write_text(json.dumps(edited_config))
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", return_value=("v1.1", {"systemPrompt": "Updated"})):
+                            with patch("click.confirm", return_value=False):  # User says no
+                                result = runner.invoke(agents, [
+                                    "edit",
+                                    "00000000-0000-4000-a000-000000000001"
+                                ], obj=ctx_obj)
+
+        # Check for cancellation message (actual output is "Cancelled")
+        assert "Cancelled" in result.output
+        mock_client.update_agent.assert_not_called()
+
+    def test_edit_agent_with_editor_override(self, runner, mock_client, tmp_path):
+        """Test edit with --editor flag."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        edited_config = {
+            "versionLabel": "v1.1",
+            "config": {"systemPrompt": "Updated"}
+        }
+        temp_file.write_text(json.dumps(edited_config))
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="custom-editor") as mock_get_editor:
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", return_value=("v1.1", {"systemPrompt": "Updated"})):
+                            with patch("click.confirm", return_value=True):
+                                result = runner.invoke(agents, [
+                                    "edit",
+                                    "00000000-0000-4000-a000-000000000001",
+                                    "--editor", "custom-editor"
+                                ], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        # Verify get_editor was called
+        mock_get_editor.assert_called_once()
+        # Verify the command succeeded with custom editor
+        assert "Agent updated successfully" in result.output
+
+    def test_edit_agent_with_notes(self, runner, mock_client, tmp_path):
+        """Test edit with --notes flag."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        edited_config = {
+            "versionLabel": "v1.1",
+            "config": {"systemPrompt": "Updated"}
+        }
+        temp_file.write_text(json.dumps(edited_config))
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", return_value=("v1.1", {"systemPrompt": "Updated"})):
+                            with patch("click.confirm", return_value=True):
+                                result = runner.invoke(agents, [
+                                    "edit",
+                                    "00000000-0000-4000-a000-000000000001",
+                                    "--notes", "Custom notes here"
+                                ], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        # Verify update was called with the custom notes
+        mock_client.update_agent.assert_called_once()
+        args, _ = mock_client.update_agent.call_args
+        agent_update = args[1]
+        assert agent_update.notes == "Custom notes here"
+
+    def test_edit_agent_keep_temp(self, runner, mock_client, tmp_path):
+        """Test edit with --keep-temp flag."""
+        ctx_obj = {"config_path": None, "settings": MagicMock(editor=None)}
+
+        temp_file = tmp_path / "agent_edit.json"
+        edited_config = {
+            "versionLabel": "v1.1",
+            "config": {"systemPrompt": "Updated"}
+        }
+        temp_file.write_text(json.dumps(edited_config))
+
+        with patch("ab_cli.cli.agents.get_client", return_value=MagicMock(__enter__=lambda x: mock_client, __exit__=lambda *args: None)):
+            with patch("ab_cli.cli.agents.create_agent_edit_tempfile", return_value=str(temp_file)):
+                with patch("ab_cli.cli.agents.get_editor", return_value="vi"):
+                    with patch("ab_cli.cli.agents.open_editor", return_value=0):
+                        with patch("ab_cli.cli.agents.read_agent_edit_tempfile", return_value=("v1.1", {"systemPrompt": "Updated"})):
+                            with patch("click.confirm", return_value=True):
+                                with patch("ab_cli.cli.agents.cleanup_tempfile") as mock_cleanup:
+                                    result = runner.invoke(agents, [
+                                        "edit",
+                                        "00000000-0000-4000-a000-000000000001",
+                                        "--keep-temp"
+                                    ], obj=ctx_obj)
+
+        assert result.exit_code == 0
+        # Verify cleanup was called with keep=True
+        mock_cleanup.assert_called_once()
+        call_args = mock_cleanup.call_args
+        assert call_args[1]["keep"] is True
+
+
 class TestListAgentTypes:
     """Tests for list_agent_types command."""
 
