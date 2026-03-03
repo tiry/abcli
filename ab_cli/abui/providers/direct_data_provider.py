@@ -11,7 +11,15 @@ from ab_cli.api.client import AgentBuilderClient
 from ab_cli.api.pagination import PaginatedResult
 from ab_cli.config.loader import find_config_file, load_config
 from ab_cli.config.settings import ABSettings
-from ab_cli.models.agent import Agent, AgentCreate, AgentUpdate, AgentVersion, Version, VersionList
+from ab_cli.models.agent import (
+    Agent,
+    AgentCreate,
+    AgentTypeList,
+    AgentUpdate,
+    AgentVersion,
+    Version,
+    VersionList,
+)
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import GuardrailList, LLMModelList
 from ab_cli.services.agent_service import AgentService
@@ -212,6 +220,18 @@ class DirectDataProvider(DataProvider):
             GuardrailList containing available guardrails.
         """
         return self.resource_service.list_guardrails(limit, offset)
+
+    def get_agent_types(self, _limit: int = 100, _offset: int = 0) -> AgentTypeList:
+        """Get list of available agent types.
+
+        Args:
+            _limit: Maximum number of agent types to return (unused - API returns all).
+            _offset: Offset for pagination (unused - API returns all).
+
+        Returns:
+            AgentTypeList containing available agent types.
+        """
+        return self.agent_service.list_agent_types()
 
     # ==================== Provider Health & Cache ====================
 

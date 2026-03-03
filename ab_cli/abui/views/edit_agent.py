@@ -6,7 +6,7 @@ from typing import Any
 import streamlit as st
 
 # Import functions from agents.py
-from ab_cli.abui.views.agents import clear_cache, get_guardrails, get_models
+from ab_cli.abui.views.agents import clear_cache, get_agent_types, get_guardrails, get_models
 
 # Import Pydantic models
 from ab_cli.models.agent import AgentCreate, AgentUpdate
@@ -72,10 +72,11 @@ def show_edit_agent_page() -> None:
                 st.error(f"Error loading latest configuration: {e}")
                 # Continue with cached data
 
-    # Fetch models and guardrails BEFORE creating the form
+    # Fetch models, guardrails, and agent types BEFORE creating the form
     # This prevents Streamlit from hanging inside the form
     models = get_models()
     guardrails = get_guardrails()
+    agent_types = get_agent_types()
 
     # Get default values from agent_to_edit if available
     default_name = agent_to_edit.agent.name if agent_to_edit else ""
@@ -101,13 +102,11 @@ def show_edit_agent_page() -> None:
         name = st.text_input("Agent Name", value=default_name)
         description = st.text_area("Description", value=default_description)
 
-        # Agent type (hard-coded options)
+        # Agent type (fetched dynamically from API)
         agent_type = st.selectbox(
             "Agent Type",
-            options=["chat", "task", "qa", "rag", "custom"],
-            index=["chat", "task", "qa", "rag", "custom"].index(default_type)
-            if default_type in ["chat", "task", "qa", "rag", "custom"]
-            else 0,
+            options=agent_types,
+            index=agent_types.index(default_type) if default_type in agent_types else 0,
         )
 
         # Model selection (using pre-fetched models list)

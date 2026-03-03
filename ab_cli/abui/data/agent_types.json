@@ -1,0 +1,21 @@
+{
+  "agentTypes": [
+    {
+      "type": "tool",
+      "description": "Tool agents can perform operations using predefined tools and functions."
+    },
+    {
+      "type": "rag",
+      "description": "RAG (Retrieval-Augmented Generation) combines retrieval-based systems with generative AI models."
+    },
+    {
+      "type": "task",
+      "description": "Task agents process structured inputs validated against JSON schemas to complete specific tasks."
+    }
+  ],
+  "pagination": {
+    "limit": 100,
+    "offset": 0,
+    "total_items": 3
+  }
+}

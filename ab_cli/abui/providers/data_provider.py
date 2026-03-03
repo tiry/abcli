@@ -7,7 +7,15 @@ Providers can use different backends (mock data, CLI subprocess, direct API call
 from abc import ABC, abstractmethod
 
 from ab_cli.api.pagination import PaginatedResult
-from ab_cli.models.agent import Agent, AgentCreate, AgentUpdate, AgentVersion, Version, VersionList
+from ab_cli.models.agent import (
+    Agent,
+    AgentCreate,
+    AgentTypeList,
+    AgentUpdate,
+    AgentVersion,
+    Version,
+    VersionList,
+)
 from ab_cli.models.invocation import InvokeResponse
 from ab_cli.models.resources import GuardrailList, LLMModelList
 
@@ -178,6 +186,19 @@ class DataProvider(ABC):
 
         Returns:
             GuardrailList containing available guardrails.
+        """
+        pass
+
+    @abstractmethod
+    def get_agent_types(self, limit: int = 100, offset: int = 0) -> AgentTypeList:
+        """Get list of available agent types.
+
+        Args:
+            limit: Maximum number of agent types to return.
+            offset: Offset for pagination.
+
+        Returns:
+            AgentTypeList containing available agent types.
         """
         pass
 

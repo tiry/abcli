@@ -15,6 +15,8 @@ from ab_cli.api.pagination import PaginatedResult
 from ab_cli.models.agent import (
     Agent,
     AgentCreate,
+    AgentType,
+    AgentTypeList,
     AgentUpdate,
     AgentVersion,
     Pagination,
@@ -618,6 +620,63 @@ class MockDataProvider(DataProvider):
                 limit=limit, offset=offset, total_items=len(fallback_guardrails)
             )
             return GuardrailList(guardrails=fallback_guardrails, pagination=pagination)
+
+    def get_agent_types(self, limit: int = 100, offset: int = 0) -> AgentTypeList:
+        """Get list of available agent types.
+
+        Args:
+            limit: Maximum number of agent types to return.
+            offset: Offset for pagination.
+
+        Returns:
+            AgentTypeList containing available agent types.
+        """
+        # Check cache first
+        cache_key = f"agent_types_{limit}_{offset}"
+        if cache_key in self.cache:
+            return cast(AgentTypeList, self.cache[cache_key])
+
+        try:
+            # Load agent types from JSON file
+            data = self._load_json_file("agent_types.json")
+            all_types_data = data.get("agentTypes", [])
+
+            # Apply pagination
+            total = len(all_types_data)
+            paginated_types_data = all_types_data[offset : offset + limit]
+
+            # Convert to AgentType objects
+            agent_types = [AgentType.model_validate(at) for at in paginated_types_data]
+
+            # Create pagination
+            pagination = Pagination(limit=limit, offset=offset, total_items=total)
+
+            result = AgentTypeList(agent_types=agent_types, pagination=pagination)
+
+            # Cache the results
+            self.cache[cache_key] = result
+            return result
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Error loading agent types: {e}")
+            # Fallback to realistic agent types matching API
+            fallback_types = [
+                AgentType(
+                    type="tool",
+                    description="Tool agents can perform operations using predefined tools.",
+                ),
+                AgentType(
+                    type="rag",
+                    description="RAG combines retrieval-based systems with generative AI models.",
+                ),
+                AgentType(
+                    type="task",
+                    description="Task agents process structured inputs validated against JSON schemas.",
+                ),
+            ]
+            pagination = Pagination(limit=limit, offset=offset, total_items=len(fallback_types))
+            return AgentTypeList(agent_types=fallback_types, pagination=pagination)
 
     def health_check(self) -> bool:
         """Check if the data provider is healthy.

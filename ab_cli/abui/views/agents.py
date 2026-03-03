@@ -286,3 +286,20 @@ def get_guardrails() -> list[str]:
         guardrails_list = provider.get_guardrails()
         # Extract guardrail names from GuardrailList
         return [guardrail.name for guardrail in guardrails_list.guardrails]
+
+
+def get_agent_types() -> list[str]:
+    """Get the list of available agent types using the data provider.
+
+    Returns:
+        List of agent type strings
+    """
+    # Get data provider from session state
+    provider = st.session_state.get("data_provider")
+    if not provider:
+        return []
+
+    with st.spinner("Loading agent types..."):
+        agent_types_list = provider.get_agent_types()
+        # Extract type strings from AgentTypeList
+        return [agent_type.type for agent_type in agent_types_list.agent_types]
