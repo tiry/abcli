@@ -376,13 +376,13 @@ def get_agent(ctx: click.Context, agent_id: str, output_format: str) -> None:
 )
 @click.option(
     "--agent-config",
-    "-c",
+    "-a",
     "config_file",
     required=True,
     type=click.Path(exists=True),
     help="Path to JSON agent configuration file",
 )
-@click.option("--version-label", "-v", help="Version label (e.g., v1.0)")
+@click.option("--version-label", "-vl", help="Version label (e.g., v1.0)")
 @click.option("--notes", help="Version notes")
 @click.option(
     "--format",
@@ -453,12 +453,12 @@ def create_agent(
 @click.argument("agent_id")
 @click.option(
     "--agent-config",
-    "-c",
+    "-a",
     "config_file",
     type=click.Path(exists=True),
     help="Path to JSON agent configuration file",
 )
-@click.option("--version-label", "-v", help="Version label (e.g., v2.0)")
+@click.option("--version-label", "-vl", help="Version label (e.g., v2.0)")
 @click.option("--notes", help="Version notes")
 @click.option(
     "--format",

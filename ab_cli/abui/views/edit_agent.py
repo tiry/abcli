@@ -29,6 +29,7 @@ def show_edit_agent_page() -> None:
             config = st.session_state.get("config")
             if config:
                 from ab_cli.abui.providers.provider_factory import get_data_provider
+
                 st.session_state.data_provider = get_data_provider(config)
 
         provider = st.session_state.get("data_provider")
@@ -43,7 +44,9 @@ def show_edit_agent_page() -> None:
 
     if agent_to_edit:
         # agent_to_edit is now guaranteed to be AgentVersion with .agent and .version
-        agent_name = agent_to_edit.agent.name if hasattr(agent_to_edit, "agent") else "Unknown Agent"
+        agent_name = (
+            agent_to_edit.agent.name if hasattr(agent_to_edit, "agent") else "Unknown Agent"
+        )
         st.title(f"Edit Agent: {agent_name}")
     else:
         st.title("Create New Agent")
