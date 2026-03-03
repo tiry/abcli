@@ -96,6 +96,14 @@ def show_edit_agent_page() -> None:
     # Get default guardrails
     default_guardrails = agent_config.get("guardrails", [])
 
+    # Calculate default system prompt BEFORE the form
+    # Use existing prompt if editing, or simple default if creating
+    if agent_to_edit and agent_config:
+        default_prompt = agent_config.get("systemPrompt", "")
+    else:
+        # For new agents, provide a simple default that user will customize
+        default_prompt = "You are a helpful assistant."
+
     # Create a form for agent creation or editing
     with st.form("agent_form"):
         # Basic agent information with default values
@@ -112,10 +120,7 @@ def show_edit_agent_page() -> None:
         # Model selection (using pre-fetched models list)
         model = st.selectbox("Model", options=models, index=model_index)
 
-        # System prompt - load from agent_config if available
-        default_prompt = agent_config.get(
-            "systemPrompt", f"You are a {agent_type} assistant named {name}."
-        )
+        # System prompt - use the pre-calculated default
         system_prompt = st.text_area("System Prompt", value=default_prompt, height=150)
 
         # Guardrails selection (using pre-fetched guardrails list)
