@@ -20,11 +20,30 @@ def show_edit_agent_page() -> None:
     # Check if we have an agent to edit
     agent_to_edit = st.session_state.get("agent_to_edit")
 
+    # Normalize agent_to_edit: handle both Agent and AgentVersion objects
+    # Chat view sends Agent objects, Agents list sends AgentVersion objects
+    if agent_to_edit and not hasattr(agent_to_edit, "agent"):
+        # It's an Agent object - we need to fetch it as AgentVersion
+        # Get data provider first
+        if "data_provider" not in st.session_state:
+            config = st.session_state.get("config")
+            if config:
+                from ab_cli.abui.providers.provider_factory import get_data_provider
+                st.session_state.data_provider = get_data_provider(config)
+
+        provider = st.session_state.get("data_provider")
+        if provider:
+            try:
+                agent_id = str(agent_to_edit.id)
+                agent_to_edit = provider.get_agent(agent_id)
+                st.session_state.agent_to_edit = agent_to_edit  # Update session state
+            except Exception as e:
+                st.error(f"Failed to load agent details: {e}")
+                agent_to_edit = None
+
     if agent_to_edit:
-        # agent_to_edit is AgentVersion with .agent and .version
-        agent_name = (
-            agent_to_edit.agent.name if hasattr(agent_to_edit, "agent") else "Unknown Agent"
-        )
+        # agent_to_edit is now guaranteed to be AgentVersion with .agent and .version
+        agent_name = agent_to_edit.agent.name if hasattr(agent_to_edit, "agent") else "Unknown Agent"
         st.title(f"Edit Agent: {agent_name}")
     else:
         st.title("Create New Agent")
